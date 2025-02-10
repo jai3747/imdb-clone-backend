@@ -1,0 +1,73 @@
+# values-dev.yaml
+global:
+  namespace: backend-dev
+  environment: development
+
+mongodb:
+  image:
+    repository: mongo
+    tag: "6.0"
+  persistence:
+    size: 512Mi
+    storageClass: standard-rwo
+  resources:
+    requests:
+      memory: "256Mi"
+      cpu: "100m"
+    limits:
+      memory: "512Mi"
+      cpu: "250m"
+  database: imdb-dev
+  securityContext:
+    fsGroup: 999
+    runAsUser: 999
+    runAsNonRoot: true
+
+backend:
+  replicaCount: 1
+  image:
+    repository: jai3747/imdb-clone-backend
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 5000
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "50m"
+    limits:
+      memory: "256Mi"
+      cpu: "100m"
+  probes:
+    readiness:
+      initialDelaySeconds: 10
+      periodSeconds: 10
+    liveness:
+      initialDelaySeconds: 15
+      periodSeconds: 20
+
+frontend:
+  replicaCount: 1
+  image:
+    repository: jai3747/imdb-clone-frontend
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 80
+    targetPort: 3000
+  resources:
+    requests:
+      memory: "128Mi"
+      cpu: "50m"
+    limits:
+      memory: "256Mi"
+      cpu: "100m"
+  probes:
+    readiness:
+      initialDelaySeconds: 10
+      periodSeconds: 10
+    liveness:
+      initialDelaySeconds: 15
+      periodSeconds: 20

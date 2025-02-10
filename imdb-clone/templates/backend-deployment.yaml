@@ -1,0 +1,48 @@
+# templates/backend-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-deployment
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    {{- include "imdb-clone.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.backend.replicaCount }}
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+      - name: backend
+        image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+        imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+        ports:
+        - containerPort: 5000
+        env:
+        - name: PORT
+          value: "5000"
+        - name: NODE_ENV
+          value: {{ .Values.global.environment }}
+        - name: MONGO_URL
+          valueFrom:
+            secretKeyRef:
+              name: mongodb-secret
+              key: MONGO_URL
+        readinessProbe:
+          httpGet:
+            path: /api/health
+            port: 5000
+          {{- toYaml .Values.backend.probes.readiness | nindent 10 }}
+        livenessProbe:
+          httpGet:
+            path: /api/health
+            port: 5000
+          {{- toYaml .Values.backend.probes.liveness | nindent 10 }}
+        resources:
+          {{- toYaml .Values.backend.resources | nindent 10 }}
+
+

@@ -1,0 +1,73 @@
+# values-staging.yaml
+global:
+  namespace: backend-staging
+  environment: staging
+
+mongodb:
+  image:
+    repository: mongo
+    tag: "6.0"
+  persistence:
+    size: 768Mi
+    storageClass: standard-rwo
+  resources:
+    requests:
+      memory: "384Mi"
+      cpu: "200m"
+    limits:
+      memory: "768Mi"
+      cpu: "400m"
+  database: imdb-staging
+  securityContext:
+    fsGroup: 999
+    runAsUser: 999
+    runAsNonRoot: true
+
+backend:
+  replicaCount: 1
+  image:
+    repository: jai3747/imdb-clone-backend
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: LoadBalancer
+    port: 5000
+  resources:
+    requests:
+      memory: "192Mi"
+      cpu: "75m"
+    limits:
+      memory: "384Mi"
+      cpu: "150m"
+  probes:
+    readiness:
+      initialDelaySeconds: 15
+      periodSeconds: 15
+    liveness:
+      initialDelaySeconds: 20
+      periodSeconds: 25
+
+frontend:
+  replicaCount: 1
+  image:
+    repository: jai3747/imdb-clone-frontend
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: LoadBalancer
+    port: 80
+    targetPort: 3000
+  resources:
+    requests:
+      memory: "192Mi"
+      cpu: "75m"
+    limits:
+      memory: "384Mi"
+      cpu: "150m"
+  probes:
+    readiness:
+      initialDelaySeconds: 15
+      periodSeconds: 15
+    liveness:
+      initialDelaySeconds: 20
+      periodSeconds: 25
