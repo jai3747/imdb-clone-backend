@@ -499,4 +499,6 @@ jobs:
           --wait
 
     - name: Verify Production Deployment
-      run: ./.github/scripts/verify-deployment.sh production
+
+      run: chmod +x .github/scripts/verify-deployment.sh && ./.github/scripts/verify-deployment.sh 
+
