@@ -1265,7 +1265,7 @@ jobs:
         path: backend
 
     - name: Setup Kubernetes Tools
-      uses: ./.github/actions/k8s-setup
+      uses: ./backend/.github/actions/k8s-setup
       with:
         helm-version: ${{ env.HELM_VERSION }}
         gcp-credentials: ${{ secrets.GCP_SA_KEY }}
@@ -1303,7 +1303,7 @@ jobs:
         path: backend
 
     - name: Setup Kubernetes Tools
-      uses: ./.github/actions/k8s-setup
+      uses: ./backend/.github/actions/k8s-setup
       with:
         helm-version: ${{ env.HELM_VERSION }}
         gcp-credentials: ${{ secrets.GCP_SA_KEY }}
@@ -1341,7 +1341,7 @@ jobs:
         path: backend
 
     - name: Setup Kubernetes Tools
-      uses: ./.github/actions/k8s-setup
+      uses: ./backend/.github/actions/k8s-setup
       with:
         helm-version: ${{ env.HELM_VERSION }}
         gcp-credentials: ${{ secrets.GCP_SA_KEY }}
