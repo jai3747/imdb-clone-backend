@@ -1,27 +1,42 @@
 # values-staging.yaml
 global:
-  namespace: backend-staging
+  namespace: staging
   environment: staging
 
 mongodb:
   image:
-    repository: mongo
+    repository: bitnami/mongodb  # Changed to bitnami/mongodb for better integration
     tag: "6.0"
+  architecture: standalone
+  auth:
+    enabled: true
+    rootPassword: "${MONGODB_ROOT_PASSWORD}"  # Use environment variable
   persistence:
-    size: 768Mi
+    enabled: true
+    size: 1Gi
+    mountPath: /data/db  # Explicitly set the correct data directory
     storageClass: standard-rwo
   resources:
     requests:
-      memory: "384Mi"
-      cpu: "200m"
+      memory: "512Mi"
+      cpu: "250m"
     limits:
-      memory: "768Mi"
-      cpu: "400m"
-  database: imdb-staging
+      memory: "1Gi"
+      cpu: "500m"
+  database: imdb-prod
   securityContext:
-    fsGroup: 999
-    runAsUser: 999
+    enabled: true
+    fsGroup: 1001        # Bitnami MongoDB user
+    runAsUser: 1001      # Bitnami MongoDB user
     runAsNonRoot: true
+  containerSecurityContext:
+    enabled: true
+    runAsUser: 1001      # Bitnami MongoDB user
+  volumePermissions:
+    enabled: true        # Enable init container to set permissions
+  podSecurityContext:
+    enabled: true
+    fsGroup: 1001        # Bitnami MongoDB user
 
 backend:
   replicaCount: 1
@@ -34,18 +49,18 @@ backend:
     port: 5000
   resources:
     requests:
-      memory: "192Mi"
-      cpu: "75m"
+      memory: "256Mi"
+      cpu: "100m"
     limits:
-      memory: "384Mi"
-      cpu: "150m"
+      memory: "512Mi"
+      cpu: "200m"
   probes:
     readiness:
-      initialDelaySeconds: 15
-      periodSeconds: 15
-    liveness:
       initialDelaySeconds: 20
-      periodSeconds: 25
+      periodSeconds: 20
+    liveness:
+      initialDelaySeconds: 25
+      periodSeconds: 30
 
 frontend:
   replicaCount: 1
@@ -59,15 +74,15 @@ frontend:
     targetPort: 3000
   resources:
     requests:
-      memory: "192Mi"
-      cpu: "75m"
+      memory: "256Mi"
+      cpu: "100m"
     limits:
-      memory: "384Mi"
-      cpu: "150m"
+      memory: "512Mi"
+      cpu: "200m"
   probes:
     readiness:
-      initialDelaySeconds: 15
-      periodSeconds: 15
-    liveness:
       initialDelaySeconds: 20
-      periodSeconds: 25
+      periodSeconds: 20
+    liveness:
+      initialDelaySeconds: 25
+      periodSeconds: 30
