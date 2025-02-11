@@ -382,7 +382,7 @@ jobs:
           docker tag ${{ env.BACKEND_IMAGE }}:${{ github.sha }} ${{ env.BACKEND_IMAGE }}:latest
 
           docker push ${{ env.BACKEND_IMAGE }}:latest
-  jobs: null
+  
   deploy:
     needs:
       - frontend-build
