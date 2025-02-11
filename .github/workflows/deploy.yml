@@ -1,3 +1,488 @@
+# # name: Security & Build Pipeline
+# # on:
+# #   push:
+# #     branches:
+# #     - main
+# #   pull_request:
+# #     branches:
+# #     - main
+
+# # env:
+# #   GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+# #   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+# #   MONGO_URL: ${{ secrets.MONGO_URL }}
+# #   SEMGREP_TOKEN: ${{ secrets.SEMGREP_TOKEN }}
+# #   SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+# #   GH_PAT: ${{ secrets.GH_PAT }}
+# #   CLUSTER_NAME: cluster-1
+# #   CLUSTER_ZONE: asia-south1-a
+# #   APP_DOMAIN: http://myapp.awsaparna123.xyz
+# #   FRONTEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/imdb-clone-frontend
+# #   BACKEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/imdb-clone-backend
+# #   HELM_VERSION: v3.12.0
+# #   CHART_PATH: ./backend/imdb-clone
+
+# # permissions:
+# #   contents: read
+# #   security-events: write
+# #   actions: write
+
+# # jobs:
+# #   # Frontend Security Scans - Running in Parallel
+# #   frontend-trufflehog:
+# #     name: 🐷 Frontend TruffleHog
+# #     runs-on: ubuntu-latest
+# #     steps:
+# #     - name: Checkout Frontend Code
+# #       uses: actions/checkout@v4
+# #       with:
+# #         repository: jai3747/imdb-clone-frontend
+# #         token: ${{ secrets.GH_PAT }}
+# #         fetch-depth: 0
+# #     - name: TruffleHog Scan
+# #       uses: trufflesecurity/trufflehog@v3.63.3
+# #       continue-on-error: true
+# #       with:
+# #         path: .
+# #         base: ${{ github.event.before }}
+# #         head: ${{ github.sha }}
+# #         extra_args: --json --output trufflehog-frontend-report.json
+# #     - name: Upload Results
+# #       uses: actions/upload-artifact@v4
+# #       with:
+# #         name: frontend-trufflehog-report
+# #         path: trufflehog-frontend-report.json
+# #         retention-days: 30
+
+# #   frontend-semgrep:
+# #     name: 🔍 Frontend Semgrep
+# #     runs-on: ubuntu-latest
+# #     steps:
+# #     - name: Checkout Frontend Code
+# #       uses: actions/checkout@v4
+# #       with:
+# #         repository: jai3747/imdb-clone-frontend
+# #         token: ${{ secrets.GH_PAT }}
+# #         fetch-depth: 0
+# #     - name: Semgrep Scan
+# #       uses: semgrep/semgrep-action@v1
+# #       continue-on-error: true
+# #       with:
+# #         config: p/javascript
+# #         output: semgrep-frontend-results.json
+# #         json: true
+# #     - name: Upload Results
+# #       uses: actions/upload-artifact@v4
+# #       with:
+# #         name: frontend-semgrep-report
+# #         path: semgrep-frontend-results.json
+# #         retention-days: 30
+
+# #   frontend-snyk:
+# #     name: 🛡️ Frontend Snyk
+# #     runs-on: ubuntu-latest
+# #     steps:
+# #     - name: Checkout Frontend Code
+# #       uses: actions/checkout@v4
+# #       with:
+# #         repository: jai3747/imdb-clone-frontend
+# #         token: ${{ secrets.GH_PAT }}
+# #     - name: Snyk Scan
+# #       uses: snyk/actions/node@master
+# #       continue-on-error: true
+# #       env:
+# #         SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+# #       with:
+# #         command: test --json > snyk-frontend-report.json
+# #     - name: Upload Results
+# #       uses: actions/upload-artifact@v4
+# #       with:
+# #         name: frontend-snyk-report
+# #         path: snyk-frontend-report.json
+# #         retention-days: 30
+
+# #   frontend-checkov:
+# #     name: 🏗️ Frontend Checkov
+# #     runs-on: ubuntu-latest
+# #     steps:
+# #     - name: Checkout Frontend Code
+# #       uses: actions/checkout@v4
+# #       with:
+# #         repository: jai3747/imdb-clone-frontend
+# #         token: ${{ secrets.GH_PAT }}
+# #     - name: Checkov Scan
+# #       uses: bridgecrewio/checkov-action@v12
+# #       continue-on-error: true
+# #       with:
+# #         directory: .
+# #         framework: dockerfile,kubernetes,secrets
+# #         output: json
+# #         output-file-path: checkov-frontend-report.json
+# #     - name: Upload Results
+# #       uses: actions/upload-artifact@v4
+# #       with:
+# #         name: frontend-checkov-report
+# #         path: checkov-frontend-report.json
+# #         retention-days: 30
+
+# #   frontend-trivy:
+# #     name: 🔒 Frontend Trivy
+# #     runs-on: ubuntu-latest
+# #     steps:
+# #     - name: Checkout Frontend Code
+# #       uses: actions/checkout@v4
+# #       with:
+# #         repository: jai3747/imdb-clone-frontend
+# #         token: ${{ secrets.GH_PAT }}
+# #     - name: Trivy Scan
+# #       uses: aquasecurity/trivy-action@master
+# #       continue-on-error: true
+# #       with:
+# #         scan-type: fs
+# #         format: json
+# #         output: trivy-frontend-report.json
+# #         severity: CRITICAL,HIGH,MEDIUM
+# #     - name: Upload Results
+# #       uses: actions/upload-artifact@v4
+# #       with:
+# #         name: frontend-trivy-report
+# #         path: trivy-frontend-report.json
+# #         retention-days: 30
+
+# #   # Backend Security Scans - Running in Parallel
+# #   backend-trufflehog:
+# #     name: 🐷 Backend TruffleHog
+# #     runs-on: ubuntu-latest
+# #     steps:
+# #     - name: Checkout Backend Code
+# #       uses: actions/checkout@v4
+# #       with:
+# #         repository: jai3747/imdb-clone-backend
+# #         token: ${{ secrets.GH_PAT }}
+# #         fetch-depth: 0
+# #     - name: TruffleHog Scan
+# #       uses: trufflesecurity/trufflehog@v3.63.3
+# #       continue-on-error: true
+# #       with:
+# #         path: .
+# #         base: ${{ github.event.before }}
+# #         head: ${{ github.sha }}
+# #         extra_args: --json --output trufflehog-backend-report.json
+# #     - name: Upload Results
+# #       uses: actions/upload-artifact@v4
+# #       with:
+# #         name: backend-trufflehog-report
+# #         path: trufflehog-backend-report.json
+# #         retention-days: 30
+
+# #   backend-semgrep:
+# #     name: 🔍 Backend Semgrep
+# #     runs-on: ubuntu-latest
+# #     steps:
+# #     - name: Checkout Backend Code
+# #       uses: actions/checkout@v4
+# #       with:
+# #         repository: jai3747/imdb-clone-backend
+# #         token: ${{ secrets.GH_PAT }}
+# #         fetch-depth: 0
+# #     - name: Semgrep Scan
+# #       uses: semgrep/semgrep-action@v1
+# #       continue-on-error: true
+# #       with:
+# #         config: p/javascript
+# #         output: semgrep-backend-results.json
+# #         json: true
+# #     - name: Upload Results
+# #       uses: actions/upload-artifact@v4
+# #       with:
+# #         name: backend-semgrep-report
+# #         path: semgrep-backend-results.json
+# #         retention-days: 30
+
+# #   backend-snyk:
+# #     name: 🛡️ Backend Snyk
+# #     runs-on: ubuntu-latest
+# #     steps:
+# #     - name: Checkout Backend Code
+# #       uses: actions/checkout@v4
+# #       with:
+# #         repository: jai3747/imdb-clone-backend
+# #         token: ${{ secrets.GH_PAT }}
+# #     - name: Snyk Scan
+# #       uses: snyk/actions/node@master
+# #       continue-on-error: true
+# #       env:
+# #         SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+# #       with:
+# #         command: test --json > snyk-backend-report.json
+# #     - name: Upload Results
+# #       uses: actions/upload-artifact@v4
+# #       with:
+# #         name: backend-snyk-report
+# #         path: snyk-backend-report.json
+# #         retention-days: 30
+
+# #   backend-checkov:
+# #     name: 🏗️ Backend Checkov
+# #     runs-on: ubuntu-latest
+# #     steps:
+# #     - name: Checkout Backend Code
+# #       uses: actions/checkout@v4
+# #       with:
+# #         repository: jai3747/imdb-clone-backend
+# #         token: ${{ secrets.GH_PAT }}
+# #     - name: Checkov Scan
+# #       uses: bridgecrewio/checkov-action@v12
+# #       continue-on-error: true
+# #       with:
+# #         directory: .
+# #         framework: dockerfile,kubernetes,secrets
+# #         output: json
+# #         output-file-path: checkov-backend-report.json
+# #     - name: Upload Results
+# #       uses: actions/upload-artifact@v4
+# #       with:
+# #         name: backend-checkov-report
+# #         path: checkov-backend-report.json
+# #         retention-days: 30
+
+# #   backend-trivy:
+# #     name: 🔒 Backend Trivy
+# #     runs-on: ubuntu-latest
+# #     steps:
+# #     - name: Checkout Backend Code
+# #       uses: actions/checkout@v4
+# #       with:
+# #         repository: jai3747/imdb-clone-backend
+# #         token: ${{ secrets.GH_PAT }}
+# #     - name: Trivy Scan
+# #       uses: aquasecurity/trivy-action@master
+# #       continue-on-error: true
+# #       with:
+# #         scan-type: fs
+# #         format: json
+# #         output: trivy-backend-report.json
+# #         severity: CRITICAL,HIGH,MEDIUM
+# #     - name: Upload Results
+# #       uses: actions/upload-artifact@v4
+# #       with:
+# #         name: backend-trivy-report
+# #         path: trivy-backend-report.json
+# #         retention-days: 30
+
+# #   # Build Jobs - Depends on all security scans
+# #   frontend-build:
+# #     needs: [ frontend-trufflehog, frontend-semgrep, frontend-snyk, frontend-checkov, frontend-trivy ]
+# #     runs-on: ubuntu-latest
+# #     outputs:
+# #       image_tag: ${{ github.sha }}
+# #     steps:
+# #     - name: Checkout Frontend Code
+# #       uses: actions/checkout@v4
+# #       with:
+# #         repository: jai3747/imdb-clone-frontend
+# #         token: ${{ secrets.GH_PAT }}
+# #     - name: Setup Node.js
+# #       uses: actions/setup-node@v4
+# #       with:
+# #         node-version: "16"
+# #         cache: npm
+# #     - name: Install Dependencies
+# #       run: npm ci
+# #     - name: Run Tests
+# #       run: npm test
+# #       continue-on-error: true
+# #     - name: Set up Docker Buildx
+# #       uses: docker/setup-buildx-action@v3
+# #     - name: Login to DockerHub
+# #       uses: docker/login-action@v3
+# #       with:
+# #         username: ${{ secrets.DOCKER_USERNAME }}
+# #         password: ${{ secrets.DOCKER_PASSWORD }}
+# #     - name: Build and Push Frontend Image
+# #       uses: docker/build-push-action@v5
+# #       with:
+# #         context: .
+# #         push: true
+# #         tags: |
+# #           ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+# #           ${{ env.FRONTEND_IMAGE }}:latest
+# #         cache-from: type=registry,ref=${{ env.FRONTEND_IMAGE }}:latest
+# #         cache-to: type=inline
+# #         build-args: |
+# #           NODE_ENV=production
+
+# #   backend-build:
+# #     needs: [ backend-trufflehog, backend-semgrep, backend-snyk, backend-checkov, backend-trivy ]
+# #     runs-on: ubuntu-latest
+# #     outputs:
+# #       image_tag: ${{ github.sha }}
+# #     steps:
+# #     - name: Checkout Backend Code
+# #       uses: actions/checkout@v4
+# #       with:
+# #         repository: jai3747/imdb-clone-backend
+# #         token: ${{ secrets.GH_PAT }}
+# #     - name: Setup Node.js
+# #       uses: actions/setup-node@v4
+# #       with:
+# #         node-version: "16"
+# #         cache: npm
+# #     - name: Install Dependencies
+# #       run: npm ci
+# #     - name: Run Tests
+# #       run: npm test
+# #       continue-on-error: true
+# #     - name: Set up Docker Buildx
+# #       uses: docker/setup-buildx-action@v3
+# #     - name: Login to DockerHub
+# #       uses: docker/login-action@v3
+# #       with:
+# #         username: ${{ secrets.DOCKER_USERNAME }}
+# #         password: ${{ secrets.DOCKER_PASSWORD }}
+# #     - name: Build and Push Backend Image
+# #       uses: docker/build-push-action@v5
+# #       with:
+# #         context: .
+# #         push: true
+# #         tags: |
+# #           ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+# #           ${{ env.BACKEND_IMAGE }}:latest
+# #         cache-from: type=registry,ref=${{ env.BACKEND_IMAGE }}:latest
+# #         cache-to: type=inline
+# #         build-args: |
+# #           NODE_ENV=production
+# #   deploy-dev:
+# #     needs: [frontend-build, backend-build]
+# #     runs-on: ubuntu-latest
+# #     environment: development
+# #     steps:
+# #       - name: Checkout Code
+# #         uses: actions/checkout@v4
+# #         with:
+# #           repository: jai3747/imdb-clone-backend
+# #           token: ${{ secrets.GH_PAT }}
+# #           path: backend
+
+# #       - name: Setup Kubernetes Tools
+# #         uses: ./backend/.github/actions/k8s-setup
+# #         with:
+# #           helm-version: ${{ env.HELM_VERSION }}
+# #           gcp-credentials: ${{ secrets.GCP_SA_KEY }}
+# #           gcp-project-id: ${{ secrets.GCP_PROJECT_ID }}
+# #           cluster-name: ${{ env.CLUSTER_NAME }}
+# #           cluster-zone: ${{ env.CLUSTER_ZONE }}
+
+# #       - name: Deploy to Development
+# #         run: |
+# #           cd backend
+# #           helm dependency update imdb-clone/
+# #           kubectl create secret generic mongodb-secret \
+# #             --from-literal=mongodb-root-password=${{ secrets.MONGODB_ROOT_PASSWORD }} \
+# #             --namespace development \
+# #             --dry-run=client -o yaml | kubectl apply -f -
+          
+# #           helm upgrade --install imdb-clone-dev imdb-clone/ \
+# #             -f imdb-clone/values-dev.yaml \
+# #             --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
+# #             --set backend.image.repository=${{ env.BACKEND_IMAGE }} \
+# #             --set backend.image.tag=${{ needs.backend-build.outputs.image_tag }} \
+# #             --set frontend.image.repository=${{ env.FRONTEND_IMAGE }} \
+# #             --set frontend.image.tag=${{ needs.frontend-build.outputs.image_tag }} \
+# #             --namespace development \
+# #             --create-namespace \
+# #             --wait
+
+# #   deploy-staging:
+# #     needs: [deploy-dev, frontend-build, backend-build]
+# #     runs-on: ubuntu-latest
+# #     environment: staging
+# #     steps:
+# #       - name: Checkout Code
+# #         uses: actions/checkout@v4
+# #         with:
+# #           repository: jai3747/imdb-clone-backend
+# #           token: ${{ secrets.GH_PAT }}
+# #           path: backend
+
+# #       - name: Setup Kubernetes Tools
+# #         uses: ./backend/.github/actions/k8s-setup
+# #         with:
+# #           helm-version: ${{ env.HELM_VERSION }}
+# #           gcp-credentials: ${{ secrets.GCP_SA_KEY }}
+# #           gcp-project-id: ${{ secrets.GCP_PROJECT_ID }}
+# #           cluster-name: ${{ env.CLUSTER_NAME }}
+# #           cluster-zone: ${{ env.CLUSTER_ZONE }}
+
+# #       - name: Deploy to Staging
+# #         run: |
+# #           cd backend
+# #           helm dependency update imdb-clone/
+# #           kubectl create secret generic mongodb-secret \
+# #             --from-literal=mongodb-root-password=${{ secrets.MONGODB_ROOT_PASSWORD }} \
+# #             --namespace staging \
+# #             --dry-run=client -o yaml | kubectl apply -f -
+          
+# #           helm upgrade --install imdb-clone-staging imdb-clone/ \
+# #             -f imdb-clone/values-staging.yaml \
+# #             --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
+# #             --set backend.image.repository=${{ env.BACKEND_IMAGE }} \
+# #             --set backend.image.tag=${{ needs.backend-build.outputs.image_tag }} \
+# #             --set frontend.image.repository=${{ env.FRONTEND_IMAGE }} \
+# #             --set frontend.image.tag=${{ needs.frontend-build.outputs.image_tag }} \
+# #             --namespace staging \
+# #             --create-namespace \
+# #             --wait
+
+# #   deploy-prod:
+# #     needs: [deploy-staging, frontend-build, backend-build]
+# #     runs-on: ubuntu-latest
+# #     environment: production
+# #     steps:
+# #       - name: Checkout Code
+# #         uses: actions/checkout@v4
+# #         with:
+# #           repository: jai3747/imdb-clone-backend
+# #           token: ${{ secrets.GH_PAT }}
+# #           path: backend
+
+# #       - name: Setup Kubernetes Tools
+# #         uses: ./backend/.github/actions/k8s-setup
+# #         with:
+# #           helm-version: ${{ env.HELM_VERSION }}
+# #           gcp-credentials: ${{ secrets.GCP_SA_KEY }}
+# #           gcp-project-id: ${{ secrets.GCP_PROJECT_ID }}
+# #           cluster-name: ${{ env.CLUSTER_NAME }}
+# #           cluster-zone: ${{ env.CLUSTER_ZONE }}
+
+# #       - name: Deploy to Production
+# #         run: |
+# #           cd backend
+# #           helm dependency update imdb-clone/
+# #           kubectl create secret generic mongodb-secret \
+# #             --from-literal=mongodb-root-password=${{ secrets.MONGODB_ROOT_PASSWORD }} \
+# #             --namespace production \
+# #             --dry-run=client -o yaml | kubectl apply -f -
+          
+# #           helm upgrade --install imdb-clone-prod imdb-clone/ \
+# #             -f imdb-clone/values-prod.yaml \
+# #             --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
+# #             --set backend.image.repository=${{ env.BACKEND_IMAGE }} \
+# #             --set backend.image.tag=${{ needs.backend-build.outputs.image_tag }} \
+# #             --set frontend.image.repository=${{ env.FRONTEND_IMAGE }} \
+# #             --set frontend.image.tag=${{ needs.frontend-build.outputs.image_tag }} \
+# #             --namespace production \
+# #             --create-namespace \
+# #             --wait
+
+# #       - name: Post-deployment verification
+# #         run: |
+# #           echo "Checking pods..."
+# #           kubectl get pods -n production
+# #           echo "Checking services..."
+# #           kubectl get services -n production
+# #           echo "Checking deployments..."
+# #           kubectl get deployments -n production
 # name: Security & Build Pipeline
 # on:
 #   push:
@@ -377,11 +862,14 @@
 #         run: |
 #           cd backend
 #           helm dependency update imdb-clone/
+          
+#           # Create MongoDB secret
 #           kubectl create secret generic mongodb-secret \
 #             --from-literal=mongodb-root-password=${{ secrets.MONGODB_ROOT_PASSWORD }} \
 #             --namespace development \
 #             --dry-run=client -o yaml | kubectl apply -f -
           
+#           # Deploy using Helm
 #           helm upgrade --install imdb-clone-dev imdb-clone/ \
 #             -f imdb-clone/values-dev.yaml \
 #             --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
@@ -391,10 +879,16 @@
 #             --set frontend.image.tag=${{ needs.frontend-build.outputs.image_tag }} \
 #             --namespace development \
 #             --create-namespace \
-#             --wait
+#             --atomic \
+#             --timeout 10m
+
+#       - name: Verify Development Deployment
+#         run: |
+#           kubectl rollout status deployment/imdb-clone-dev-backend -n development
+#           kubectl rollout status deployment/imdb-clone-dev-frontend -n development
 
 #   deploy-staging:
-#     needs: [deploy-dev, frontend-build, backend-build]
+#     needs: [frontend-build, backend-build]
 #     runs-on: ubuntu-latest
 #     environment: staging
 #     steps:
@@ -418,11 +912,14 @@
 #         run: |
 #           cd backend
 #           helm dependency update imdb-clone/
+          
+#           # Create MongoDB secret
 #           kubectl create secret generic mongodb-secret \
 #             --from-literal=mongodb-root-password=${{ secrets.MONGODB_ROOT_PASSWORD }} \
 #             --namespace staging \
 #             --dry-run=client -o yaml | kubectl apply -f -
           
+#           # Deploy using Helm
 #           helm upgrade --install imdb-clone-staging imdb-clone/ \
 #             -f imdb-clone/values-staging.yaml \
 #             --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
@@ -432,10 +929,16 @@
 #             --set frontend.image.tag=${{ needs.frontend-build.outputs.image_tag }} \
 #             --namespace staging \
 #             --create-namespace \
-#             --wait
+#             --atomic \
+#             --timeout 10m
+
+#       - name: Verify Staging Deployment
+#         run: |
+#           kubectl rollout status deployment/imdb-clone-staging-backend -n staging
+#           kubectl rollout status deployment/imdb-clone-staging-frontend -n staging
 
 #   deploy-prod:
-#     needs: [deploy-staging, frontend-build, backend-build]
+#     needs: [deploy-staging]
 #     runs-on: ubuntu-latest
 #     environment: production
 #     steps:
@@ -459,11 +962,14 @@
 #         run: |
 #           cd backend
 #           helm dependency update imdb-clone/
+          
+#           # Create MongoDB secret
 #           kubectl create secret generic mongodb-secret \
 #             --from-literal=mongodb-root-password=${{ secrets.MONGODB_ROOT_PASSWORD }} \
 #             --namespace production \
 #             --dry-run=client -o yaml | kubectl apply -f -
           
+#           # Deploy using Helm
 #           helm upgrade --install imdb-clone-prod imdb-clone/ \
 #             -f imdb-clone/values-prod.yaml \
 #             --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
@@ -473,8 +979,14 @@
 #             --set frontend.image.tag=${{ needs.frontend-build.outputs.image_tag }} \
 #             --namespace production \
 #             --create-namespace \
-#             --wait
+#             --atomic \
+#             --timeout 10m
 
+#       - name: Verify Production Deployment
+#         run: |
+#           kubectl rollout status deployment/imdb-clone-prod-backend -n production
+#           kubectl rollout status deployment/imdb-clone-prod-frontend -n production
+          
 #       - name: Post-deployment verification
 #         run: |
 #           echo "Checking pods..."
@@ -837,10 +1349,25 @@ jobs:
         cache-to: type=inline
         build-args: |
           NODE_ENV=production
-  deploy-dev:
-    needs: [frontend-build, backend-build]
+  jobs:
+  prepare-environments:
     runs-on: ubuntu-latest
-    environment: development
+    outputs:
+      environments: ${{ steps.set-environments.outputs.environments }}
+    steps:
+      - id: set-environments
+        run: |
+          echo "environments=[\"development\", \"staging\", \"production\"]" >> $GITHUB_OUTPUT
+
+  deploy:
+    needs: prepare-environments
+    strategy:
+      matrix:
+        environment: ${{ fromJson(needs.prepare-environments.outputs.environments) }}
+      fail-fast: false
+    runs-on: ubuntu-latest
+    environment: ${{ matrix.environment }}
+    
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -858,7 +1385,11 @@ jobs:
           cluster-name: ${{ env.CLUSTER_NAME }}
           cluster-zone: ${{ env.CLUSTER_ZONE }}
 
-      - name: Deploy to Development
+      - name: Create Namespace
+        run: |
+          kubectl create namespace ${{ matrix.environment }} --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy to ${{ matrix.environment }}
         run: |
           cd backend
           helm dependency update imdb-clone/
@@ -866,132 +1397,31 @@ jobs:
           # Create MongoDB secret
           kubectl create secret generic mongodb-secret \
             --from-literal=mongodb-root-password=${{ secrets.MONGODB_ROOT_PASSWORD }} \
-            --namespace development \
+            --namespace ${{ matrix.environment }} \
             --dry-run=client -o yaml | kubectl apply -f -
           
           # Deploy using Helm
-          helm upgrade --install imdb-clone-dev imdb-clone/ \
-            -f imdb-clone/values-dev.yaml \
+          helm upgrade --install imdb-clone-${{ matrix.environment }} imdb-clone/ \
+            -f imdb-clone/values-${{ matrix.environment }}.yaml \
             --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
             --set backend.image.repository=${{ env.BACKEND_IMAGE }} \
-            --set backend.image.tag=${{ needs.backend-build.outputs.image_tag }} \
+            --set backend.image.tag=${GITHUB_SHA} \
             --set frontend.image.repository=${{ env.FRONTEND_IMAGE }} \
-            --set frontend.image.tag=${{ needs.frontend-build.outputs.image_tag }} \
-            --namespace development \
-            --create-namespace \
+            --set frontend.image.tag=${GITHUB_SHA} \
+            --namespace ${{ matrix.environment }} \
             --atomic \
             --timeout 10m
 
-      - name: Verify Development Deployment
+      - name: Verify Deployment
         run: |
-          kubectl rollout status deployment/imdb-clone-dev-backend -n development
-          kubectl rollout status deployment/imdb-clone-dev-frontend -n development
-
-  deploy-staging:
-    needs: [frontend-build, backend-build]
-    runs-on: ubuntu-latest
-    environment: staging
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          repository: jai3747/imdb-clone-backend
-          token: ${{ secrets.GH_PAT }}
-          path: backend
-
-      - name: Setup Kubernetes Tools
-        uses: ./backend/.github/actions/k8s-setup
-        with:
-          helm-version: ${{ env.HELM_VERSION }}
-          gcp-credentials: ${{ secrets.GCP_SA_KEY }}
-          gcp-project-id: ${{ secrets.GCP_PROJECT_ID }}
-          cluster-name: ${{ env.CLUSTER_NAME }}
-          cluster-zone: ${{ env.CLUSTER_ZONE }}
-
-      - name: Deploy to Staging
-        run: |
-          cd backend
-          helm dependency update imdb-clone/
-          
-          # Create MongoDB secret
-          kubectl create secret generic mongodb-secret \
-            --from-literal=mongodb-root-password=${{ secrets.MONGODB_ROOT_PASSWORD }} \
-            --namespace staging \
-            --dry-run=client -o yaml | kubectl apply -f -
-          
-          # Deploy using Helm
-          helm upgrade --install imdb-clone-staging imdb-clone/ \
-            -f imdb-clone/values-staging.yaml \
-            --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
-            --set backend.image.repository=${{ env.BACKEND_IMAGE }} \
-            --set backend.image.tag=${{ needs.backend-build.outputs.image_tag }} \
-            --set frontend.image.repository=${{ env.FRONTEND_IMAGE }} \
-            --set frontend.image.tag=${{ needs.frontend-build.outputs.image_tag }} \
-            --namespace staging \
-            --create-namespace \
-            --atomic \
-            --timeout 10m
-
-      - name: Verify Staging Deployment
-        run: |
-          kubectl rollout status deployment/imdb-clone-staging-backend -n staging
-          kubectl rollout status deployment/imdb-clone-staging-frontend -n staging
-
-  deploy-prod:
-    needs: [deploy-staging]
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-        with:
-          repository: jai3747/imdb-clone-backend
-          token: ${{ secrets.GH_PAT }}
-          path: backend
-
-      - name: Setup Kubernetes Tools
-        uses: ./backend/.github/actions/k8s-setup
-        with:
-          helm-version: ${{ env.HELM_VERSION }}
-          gcp-credentials: ${{ secrets.GCP_SA_KEY }}
-          gcp-project-id: ${{ secrets.GCP_PROJECT_ID }}
-          cluster-name: ${{ env.CLUSTER_NAME }}
-          cluster-zone: ${{ env.CLUSTER_ZONE }}
-
-      - name: Deploy to Production
-        run: |
-          cd backend
-          helm dependency update imdb-clone/
-          
-          # Create MongoDB secret
-          kubectl create secret generic mongodb-secret \
-            --from-literal=mongodb-root-password=${{ secrets.MONGODB_ROOT_PASSWORD }} \
-            --namespace production \
-            --dry-run=client -o yaml | kubectl apply -f -
-          
-          # Deploy using Helm
-          helm upgrade --install imdb-clone-prod imdb-clone/ \
-            -f imdb-clone/values-prod.yaml \
-            --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
-            --set backend.image.repository=${{ env.BACKEND_IMAGE }} \
-            --set backend.image.tag=${{ needs.backend-build.outputs.image_tag }} \
-            --set frontend.image.repository=${{ env.FRONTEND_IMAGE }} \
-            --set frontend.image.tag=${{ needs.frontend-build.outputs.image_tag }} \
-            --namespace production \
-            --create-namespace \
-            --atomic \
-            --timeout 10m
-
-      - name: Verify Production Deployment
-        run: |
-          kubectl rollout status deployment/imdb-clone-prod-backend -n production
-          kubectl rollout status deployment/imdb-clone-prod-frontend -n production
+          kubectl rollout status deployment/imdb-clone-${{ matrix.environment }}-backend -n ${{ matrix.environment }}
+          kubectl rollout status deployment/imdb-clone-${{ matrix.environment }}-frontend -n ${{ matrix.environment }}
           
       - name: Post-deployment verification
         run: |
-          echo "Checking pods..."
-          kubectl get pods -n production
-          echo "Checking services..."
-          kubectl get services -n production
-          echo "Checking deployments..."
-          kubectl get deployments -n production
+          echo "Checking pods in ${{ matrix.environment }}..."
+          kubectl get pods -n ${{ matrix.environment }}
+          echo "Checking services in ${{ matrix.environment }}..."
+          kubectl get services -n ${{ matrix.environment }}
+          echo "Checking deployments in ${{ matrix.environment }}..."
+          kubectl get deployments -n ${{ matrix.environment }}
