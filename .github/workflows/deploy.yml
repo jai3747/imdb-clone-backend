@@ -1303,7 +1303,7 @@ jobs:
         path: backend
 
     - name: Setup Kubernetes Tools
-      uses: ./.github/workflows/actions/k8s-setup
+      uses: ./.github/actions/k8s-setup
       with:
         helm-version: ${{ env.HELM_VERSION }}
         gcp-credentials: ${{ secrets.GCP_SA_KEY }}
