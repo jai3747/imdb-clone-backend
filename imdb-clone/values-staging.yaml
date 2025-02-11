@@ -1,6 +1,6 @@
 # values-staging.yaml
 global:
-  namespace: staging
+  namespace: stag
   environment: staging
 
 mongodb:
