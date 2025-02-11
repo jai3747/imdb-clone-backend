@@ -72,7 +72,7 @@
 #       initialDelaySeconds: 25
 #       periodSeconds: 30
 global:
-  namespace: backend-prod
+  namespace: prod
   environment: production
 
 mongodb:
