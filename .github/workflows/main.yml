@@ -1,11 +1,12 @@
+---
 name: Security & Build Pipeline
-
 on:
   push:
-    branches: [main]
+    branches:
+      - main
   pull_request:
-    branches: [main]
-
+    branches:
+      - main
 env:
   GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
@@ -15,7 +16,7 @@ env:
   GH_PAT: ${{ secrets.GH_PAT }}
   CLUSTER_NAME: cluster-1
   CLUSTER_ZONE: asia-south1-a
-  APP_DOMAIN: "http://myapp.awsaparna123.xyz"
+  APP_DOMAIN: http://myapp.awsaparna123.xyz
   FRONTEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/imdb-clone-frontend
   BACKEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/imdb-clone-backend
   HELM_VERSION: v3.12.0
@@ -24,9 +25,7 @@ permissions:
   contents: read
   security-events: write
   actions: write
-
 jobs:
-  # Frontend Security Scans
   frontend-trufflehog:
     name: 🐷 Frontend TruffleHog
     runs-on: ubuntu-latest
@@ -37,7 +36,6 @@ jobs:
           repository: jai3747/imdb-clone-frontend
           token: ${{ secrets.GH_PAT }}
           fetch-depth: 0
-
       - name: TruffleHog Scan
         uses: trufflesecurity/trufflehog@v3.63.3
         continue-on-error: true
@@ -46,14 +44,12 @@ jobs:
           base: ${{ github.event.before }}
           head: ${{ github.sha }}
           extra_args: --json --output trufflehog-frontend-report.json
-
       - name: Upload TruffleHog Results
         uses: actions/upload-artifact@v4
         with:
           name: frontend-trufflehog-report
           path: trufflehog-frontend-report.json
           retention-days: 30
-
   frontend-semgrep:
     name: 🔍 Frontend Semgrep
     runs-on: ubuntu-latest
@@ -64,7 +60,6 @@ jobs:
           repository: jai3747/imdb-clone-frontend
           token: ${{ secrets.GH_PAT }}
           fetch-depth: 0
-
       - name: Semgrep Scan
         uses: semgrep/semgrep-action@v1
         continue-on-error: true
@@ -72,14 +67,12 @@ jobs:
           config: p/javascript
           output: semgrep-frontend-results.json
           json: true
-
       - name: Upload Semgrep Results
         uses: actions/upload-artifact@v4
         with:
           name: frontend-semgrep-report
           path: semgrep-frontend-results.json
           retention-days: 30
-
   frontend-snyk:
     name: 🛡️ Frontend Snyk
     runs-on: ubuntu-latest
@@ -89,7 +82,6 @@ jobs:
         with:
           repository: jai3747/imdb-clone-frontend
           token: ${{ secrets.GH_PAT }}
-
       - name: Snyk Scan
         uses: snyk/actions/node@master
         continue-on-error: true
@@ -97,14 +89,12 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           command: test --json > snyk-frontend-report.json
-
       - name: Upload Snyk Results
         uses: actions/upload-artifact@v4
         with:
           name: frontend-snyk-report
           path: snyk-frontend-report.json
           retention-days: 30
-
   frontend-checkov:
     name: 🏗️ Frontend Checkov
     runs-on: ubuntu-latest
@@ -114,7 +104,6 @@ jobs:
         with:
           repository: jai3747/imdb-clone-frontend
           token: ${{ secrets.GH_PAT }}
-
       - name: Checkov Scan
         uses: bridgecrewio/checkov-action@v12
         continue-on-error: true
@@ -123,14 +112,12 @@ jobs:
           framework: dockerfile,kubernetes,secrets
           output: json
           output-file-path: checkov-frontend-report.json
-
       - name: Upload Checkov Results
         uses: actions/upload-artifact@v4
         with:
           name: frontend-checkov-report
           path: checkov-frontend-report.json
           retention-days: 30
-
   frontend-trivy:
     name: 🔒 Frontend Trivy
     runs-on: ubuntu-latest
@@ -140,24 +127,20 @@ jobs:
         with:
           repository: jai3747/imdb-clone-frontend
           token: ${{ secrets.GH_PAT }}
-
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         continue-on-error: true
         with:
-          scan-type: 'fs'
-          format: 'json'
-          output: 'trivy-frontend-report.json'
-          severity: 'CRITICAL,HIGH,MEDIUM'
-
+          scan-type: fs
+          format: json
+          output: trivy-frontend-report.json
+          severity: CRITICAL,HIGH,MEDIUM
       - name: Upload Trivy Results
         uses: actions/upload-artifact@v4
         with:
           name: frontend-trivy-report
           path: trivy-frontend-report.json
           retention-days: 30
-
-  # Backend Security Scans
   backend-trufflehog:
     name: 🐷 Backend TruffleHog
     runs-on: ubuntu-latest
@@ -168,7 +151,6 @@ jobs:
           repository: jai3747/imdb-clone-backend
           token: ${{ secrets.GH_PAT }}
           fetch-depth: 0
-
       - name: TruffleHog Scan
         uses: trufflesecurity/trufflehog@v3.63.3
         continue-on-error: true
@@ -177,14 +159,12 @@ jobs:
           base: ${{ github.event.before }}
           head: ${{ github.sha }}
           extra_args: --json --output trufflehog-backend-report.json
-
       - name: Upload TruffleHog Results
         uses: actions/upload-artifact@v4
         with:
           name: backend-trufflehog-report
           path: trufflehog-backend-report.json
           retention-days: 30
-
   backend-semgrep:
     name: 🔍 Backend Semgrep
     runs-on: ubuntu-latest
@@ -195,7 +175,6 @@ jobs:
           repository: jai3747/imdb-clone-backend
           token: ${{ secrets.GH_PAT }}
           fetch-depth: 0
-
       - name: Semgrep Scan
         uses: semgrep/semgrep-action@v1
         continue-on-error: true
@@ -203,14 +182,12 @@ jobs:
           config: p/javascript
           output: semgrep-backend-results.json
           json: true
-
       - name: Upload Semgrep Results
         uses: actions/upload-artifact@v4
         with:
           name: backend-semgrep-report
           path: semgrep-backend-results.json
           retention-days: 30
-
   backend-snyk:
     name: 🛡️ Backend Snyk
     runs-on: ubuntu-latest
@@ -220,7 +197,6 @@ jobs:
         with:
           repository: jai3747/imdb-clone-backend
           token: ${{ secrets.GH_PAT }}
-
       - name: Snyk Scan
         uses: snyk/actions/node@master
         continue-on-error: true
@@ -228,14 +204,12 @@ jobs:
           SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
         with:
           command: test --json > snyk-backend-report.json
-
       - name: Upload Snyk Results
         uses: actions/upload-artifact@v4
         with:
           name: backend-snyk-report
           path: snyk-backend-report.json
           retention-days: 30
-
   backend-checkov:
     name: 🏗️ Backend Checkov
     runs-on: ubuntu-latest
@@ -245,7 +219,6 @@ jobs:
         with:
           repository: jai3747/imdb-clone-backend
           token: ${{ secrets.GH_PAT }}
-
       - name: Checkov Scan
         uses: bridgecrewio/checkov-action@v12
         continue-on-error: true
@@ -254,14 +227,12 @@ jobs:
           framework: dockerfile,kubernetes,secrets
           output: json
           output-file-path: checkov-backend-report.json
-
       - name: Upload Checkov Results
         uses: actions/upload-artifact@v4
         with:
           name: backend-checkov-report
           path: checkov-backend-report.json
           retention-days: 30
-
   backend-trivy:
     name: 🔒 Backend Trivy
     runs-on: ubuntu-latest
@@ -271,26 +242,27 @@ jobs:
         with:
           repository: jai3747/imdb-clone-backend
           token: ${{ secrets.GH_PAT }}
-
       - name: Run Trivy vulnerability scanner
         uses: aquasecurity/trivy-action@master
         continue-on-error: true
         with:
-          scan-type: 'fs'
-          format: 'json'
-          output: 'trivy-backend-report.json'
-          severity: 'CRITICAL,HIGH,MEDIUM'
-
+          scan-type: fs
+          format: json
+          output: trivy-backend-report.json
+          severity: CRITICAL,HIGH,MEDIUM
       - name: Upload Trivy Results
         uses: actions/upload-artifact@v4
         with:
           name: backend-trivy-report
           path: trivy-backend-report.json
           retention-days: 30
-
-  # Build Jobs
   frontend-build:
-    needs: [frontend-trufflehog, frontend-semgrep, frontend-snyk, frontend-checkov, frontend-trivy]
+    needs:
+      - frontend-trufflehog
+      - frontend-semgrep
+      - frontend-snyk
+      - frontend-checkov
+      - frontend-trivy
     runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ github.sha }}
@@ -300,29 +272,23 @@ jobs:
         with:
           repository: jai3747/imdb-clone-frontend
           token: ${{ secrets.GH_PAT }}
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '16'
-          cache: 'npm'
-
+          node-version: "16"
+          cache: npm
       - name: Install Dependencies
         run: npm ci
-
       - name: Run Tests
         run: npm test
         continue-on-error: true
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
       - name: Login to DockerHub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-
       - name: Build Frontend Image
         uses: docker/build-push-action@v5
         with:
@@ -333,30 +299,33 @@ jobs:
           cache-to: type=inline
           build-args: |
             NODE_ENV=production
-
       - name: Scan Frontend Image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
-          format: 'json'
-          output: 'trivy-frontend-image-report.json'
-          severity: 'CRITICAL,HIGH,MEDIUM'
-
+          format: json
+          output: trivy-frontend-image-report.json
+          severity: CRITICAL,HIGH,MEDIUM
       - name: Upload Trivy Image Scan Results
         uses: actions/upload-artifact@v4
         with:
           name: frontend-trivy-image-report
           path: trivy-frontend-image-report.json
           retention-days: 30
-
       - name: Push Frontend Image
-        run: |
+        run: >
           docker push ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
-          docker tag ${{ env.FRONTEND_IMAGE }}:${{ github.sha }} ${{ env.FRONTEND_IMAGE }}:latest
-          docker push ${{ env.FRONTEND_IMAGE }}:latest
 
+          docker tag ${{ env.FRONTEND_IMAGE }}:${{ github.sha }} ${{ env.FRONTEND_IMAGE }}:latest
+
+          docker push ${{ env.FRONTEND_IMAGE }}:latest
   backend-build:
-    needs: [backend-trufflehog, backend-semgrep, backend-snyk, backend-checkov, backend-trivy]
+    needs:
+      - backend-trufflehog
+      - backend-semgrep
+      - backend-snyk
+      - backend-checkov
+      - backend-trivy
     runs-on: ubuntu-latest
     outputs:
       image_tag: ${{ github.sha }}
@@ -366,29 +335,23 @@ jobs:
         with:
           repository: jai3747/imdb-clone-backend
           token: ${{ secrets.GH_PAT }}
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '16'
-          cache: 'npm'
-
+          node-version: "16"
+          cache: npm
       - name: Install Dependencies
         run: npm ci
-
       - name: Run Tests
         run: npm test
         continue-on-error: true
-
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
       - name: Login to DockerHub
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
-
       - name: Build Backend Image
         uses: docker/build-push-action@v5
         with:
@@ -399,31 +362,31 @@ jobs:
           cache-to: type=inline
           build-args: |
             NODE_ENV=production
-
       - name: Scan Backend Image with Trivy
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
-          format: 'json'
-          output: 'trivy-backend-image-report.json'
-          severity: 'CRITICAL,HIGH,MEDIUM'
-
+          format: json
+          output: trivy-backend-image-report.json
+          severity: CRITICAL,HIGH,MEDIUM
       - name: Upload Trivy Image Scan Results
         uses: actions/upload-artifact@v4
         with:
           name: backend-trivy-image-report
           path: trivy-backend-image-report.json
           retention-days: 30
-
       - name: Push Backend Image
-        run: |
+        run: >
           docker push ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
-          docker tag ${{ env.BACKEND_IMAGE }}:${{ github.sha }} ${{ env.BACKEND_IMAGE }}:latest
-          docker push ${{ env.BACKEND_IMAGE }}:latest
 
-  jobs:
+          docker tag ${{ env.BACKEND_IMAGE }}:${{ github.sha }} ${{ env.BACKEND_IMAGE }}:latest
+
+          docker push ${{ env.BACKEND_IMAGE }}:latest
+  jobs: null
   deploy:
-    needs: [frontend-build, backend-build]
+    needs:
+      - frontend-build
+      - backend-build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Infrastructure Code
@@ -432,38 +395,31 @@ jobs:
           repository: jai3747/imdb-clone-backend
           token: ${{ secrets.GH_PAT }}
           path: backend
-
       - name: Install Helm
         uses: azure/setup-helm@v3
         with:
           version: ${{ env.HELM_VERSION }}
-
       - name: Google Auth
         id: auth
         uses: google-github-actions/auth@v1
         with:
-          credentials_json: '${{ secrets.GCP_SA_KEY }}'
-
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
-
       - name: Install kubectl and gke-auth
         run: |
           gcloud components install kubectl gke-gcloud-auth-plugin
           gcloud --quiet auth configure-docker
-
       - name: Get GKE Credentials
         run: |
           gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} \
           --zone ${{ env.CLUSTER_ZONE }} \
           --project ${{ secrets.GCP_PROJECT_ID }}
-
       - name: Create Namespaces
-        run: |
+        run: >
           for ns in mongodb backend frontend; do
             kubectl create namespace $ns --dry-run=client -o yaml | kubectl apply -f -
           done
-
       - name: Update Helm Values
         run: |
           cd backend
@@ -481,12 +437,10 @@ jobs:
               enabled: true
               rootPassword: ${{ secrets.MONGO_ROOT_PASSWORD }}
           EOF
-
       - name: Add Helm Repositories
         run: |
           helm repo add bitnami https://charts.bitnami.com/bitnami
           helm repo update
-
       - name: Deploy MongoDB
         run: |
           helm upgrade --install mongodb bitnami/mongodb \
@@ -494,7 +448,6 @@ jobs:
             --set auth.rootPassword=${{ secrets.MONGO_ROOT_PASSWORD }} \
             --set auth.database=imdb-clone \
             --wait
-
       - name: Deploy Application
         run: |
           helm upgrade --install imdb-clone ./backend/imdb-clone \
@@ -502,17 +455,15 @@ jobs:
             -f ./backend/values-override.yaml \
             --set mongodbUrl=${{ secrets.MONGO_URL }} \
             --wait
-
       - name: Verify Deployment
         run: |
           for ns in mongodb backend frontend; do
             echo "=== $ns Status ==="
             kubectl get all -n $ns
           done
-
-  # DAST Scanning
   dast-scan:
-    needs: [deploy]
+    needs:
+      - deploy
     runs-on: ubuntu-latest
     steps:
       - name: Health Check
@@ -533,31 +484,28 @@ jobs:
             echo "Waiting for service to be available..."
             sleep 10
           done
-
       - name: ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.9.0
         continue-on-error: true
         with:
           target: ${{ env.APP_DOMAIN }}
-          rules_file_name: '.zap/rules.tsv'
-          cmd_options: '-a -j -I'
+          rules_file_name: .zap/rules.tsv
+          cmd_options: -a -j -I
           allow_issue_writing: true
-
       - name: Run Nuclei Scan
         uses: projectdiscovery/nuclei-action@main
         continue-on-error: true
         with:
           target: ${{ env.APP_DOMAIN }}
-          templates: "cves,vulnerabilities,exposures,misconfiguration"
-          severity: "critical,high,medium"
-          output: "nuclei-output.txt"
+          templates: cves,vulnerabilities,exposures,misconfiguration
+          severity: critical,high,medium
+          output: nuclei-output.txt
           rate-limit: 150
           bulk-size: 25
           retry-on-failure: true
-
-  # Report Aggregation
   security-report:
-    needs: [dast-scan]
+    needs:
+      - dast-scan
     runs-on: ubuntu-latest
     if: always()
     steps:
@@ -565,41 +513,45 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: security-reports
-          pattern: '*-report*'
+          pattern: "*-report*"
           merge-multiple: true
-
       - name: Generate Security Dashboard
-        run: |
+        run: >
           echo "# Security Scan Results" > security-dashboard.md
+
           echo "## Summary of Findings" >> security-dashboard.md
-          
+
+
           # Process ZAP results
+
           if [ -f "security-reports/zap-report.json" ]; then
             echo "### ZAP Scan Results" >> security-dashboard.md
             jq -r '.site[0].alerts[] | "- " + .name + " (Risk: " + .risk + ")"' security-reports/zap-report.json >> security-dashboard.md
           fi
-          
+
+
           # Process Nuclei results
+
           if [ -f "security-reports/nuclei-output.txt" ]; then
             echo "### Nuclei Scan Results" >> security-dashboard.md
             echo "\`\`\`" >> security-dashboard.md
             cat security-reports/nuclei-output.txt >> security-dashboard.md
             echo "\`\`\`" >> security-dashboard.md
           fi
-          
+
+
           # Process Trivy results
+
           if [ -f "security-reports/trivy-frontend-image-report.json" ]; then
             echo "### Trivy Frontend Image Scan Results" >> security-dashboard.md
             jq -r '.Results[] | select(.Vulnerabilities) | .Vulnerabilities[] | select(.Severity == "CRITICAL" or .Severity == "HIGH") | "- " + .VulnerabilityID + " (" + .Severity + "): " + .Title' security-reports/trivy-frontend-image-report.json >> security-dashboard.md
           fi
-
       - name: Upload Security Dashboard
         uses: actions/upload-artifact@v4
         with:
           name: security-dashboard
           path: security-dashboard.md
           retention-days: 30
-
       - name: Notify on Critical Findings
         if: failure()
         run: |
