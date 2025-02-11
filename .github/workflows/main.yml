@@ -18,7 +18,8 @@ env:
   APP_DOMAIN: "http://myapp.awsaparna123.xyz"
   FRONTEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/imdb-clone-frontend
   BACKEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/imdb-clone-backend
-
+  HELM_VERSION: v3.12.0
+  CHART_PATH: ./backend/imdb-clone
 permissions:
   contents: read
   security-events: write
@@ -420,6 +421,7 @@ jobs:
           docker tag ${{ env.BACKEND_IMAGE }}:${{ github.sha }} ${{ env.BACKEND_IMAGE }}:latest
           docker push ${{ env.BACKEND_IMAGE }}:latest
 
+  jobs:
   deploy:
     needs: [frontend-build, backend-build]
     runs-on: ubuntu-latest
@@ -430,76 +432,83 @@ jobs:
           repository: jai3747/imdb-clone-backend
           token: ${{ secrets.GH_PAT }}
           path: backend
-          
+
+      - name: Install Helm
+        uses: azure/setup-helm@v3
+        with:
+          version: ${{ env.HELM_VERSION }}
+
       - name: Google Auth
         id: auth
         uses: google-github-actions/auth@v1
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
-          
+
       - name: Set up Cloud SDK
         uses: google-github-actions/setup-gcloud@v1
-        
+
       - name: Install kubectl and gke-auth
         run: |
           gcloud components install kubectl gke-gcloud-auth-plugin
           gcloud --quiet auth configure-docker
-          
+
       - name: Get GKE Credentials
         run: |
           gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} \
-            --zone ${{ env.CLUSTER_ZONE }} \
-            --project ${{ secrets.GCP_PROJECT_ID }}
-            
-      - name: Create Kubernetes Namespaces
+          --zone ${{ env.CLUSTER_ZONE }} \
+          --project ${{ secrets.GCP_PROJECT_ID }}
+
+      - name: Create Namespaces
         run: |
-          kubectl create namespace mongodb --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create namespace backend --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create namespace frontend --dry-run=client -o yaml | kubectl apply -f -
-          
-      - name: Create Secrets
+          for ns in mongodb backend frontend; do
+            kubectl create namespace $ns --dry-run=client -o yaml | kubectl apply -f -
+          done
+
+      - name: Update Helm Values
         run: |
-          kubectl create secret generic mongodb-secret \
+          cd backend
+          cat > values-override.yaml << EOF
+          backend:
+            image:
+              repository: ${{ env.BACKEND_IMAGE }}
+              tag: ${{ needs.backend-build.outputs.image_tag }}
+          frontend:
+            image:
+              repository: ${{ env.FRONTEND_IMAGE }}
+              tag: ${{ needs.frontend-build.outputs.image_tag }}
+          mongodb:
+            auth:
+              enabled: true
+              rootPassword: ${{ secrets.MONGO_ROOT_PASSWORD }}
+          EOF
+
+      - name: Add Helm Repositories
+        run: |
+          helm repo add bitnami https://charts.bitnami.com/bitnami
+          helm repo update
+
+      - name: Deploy MongoDB
+        run: |
+          helm upgrade --install mongodb bitnami/mongodb \
             --namespace mongodb \
-            --from-literal=MONGO_URL="${{ secrets.MONGO_URL }}" \
-            --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create secret generic backend-secret \
+            --set auth.rootPassword=${{ secrets.MONGO_ROOT_PASSWORD }} \
+            --set auth.database=imdb-clone \
+            --wait
+
+      - name: Deploy Application
+        run: |
+          helm upgrade --install imdb-clone ./backend/imdb-clone \
             --namespace backend \
-            --from-literal=MONGO_URL="${{ secrets.MONGO_URL }}" \
-            --dry-run=client -o yaml | kubectl apply -f -
-            
-      - name: Update Image Tags
-        run: |
-          cd backend
-          sed -i "s|image: .*imdb-clone-backend.*|image: ${{ env.BACKEND_IMAGE }}:${{ needs.backend-build.outputs.image_tag }}|g" k8.yaml
-          sed -i "s|image: .*imdb-clone-frontend.*|image: ${{ env.FRONTEND_IMAGE }}:${{ needs.frontend-build.outputs.image_tag }}|g" k8.yaml
-          
-      - name: Deploy Applications
-        run: |
-          cd backend
-          
-          kubectl apply -f k8.yaml --namespace backend
-          
-          
-      - name: Wait for Deployments
-        run: |
-          kubectl rollout status statefulset/mongodb --namespace mongodb --timeout=5m
-          kubectl wait --for=condition=ready pod -l app=mongodb --namespace backend --timeout=5m
-          
-          kubectl rollout status deployment/backend-deployment --namespace backend --timeout=5m
-          kubectl wait --for=condition=ready pod -l app=backend --namespace backend --timeout=5m
-          
-          kubectl rollout status deployment/frontend-deployment --namespace backend --timeout=5m
-          kubectl wait --for=condition=ready pod -l app=frontend --namespace backend --timeout=5m
-          
+            -f ./backend/values-override.yaml \
+            --set mongodbUrl=${{ secrets.MONGO_URL }} \
+            --wait
+
       - name: Verify Deployment
         run: |
-          # echo "=== MongoDB Status ==="
-          # kubectl get all -n mongodb
-          echo "=== Backend Status ==="
-          kubectl get all -n backend
-          # echo "=== Frontend Status ==="
-          # kubectl get all -n frontend
+          for ns in mongodb backend frontend; do
+            echo "=== $ns Status ==="
+            kubectl get all -n $ns
+          done
 
   # DAST Scanning
   dast-scan:
