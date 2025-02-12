@@ -20,7 +20,7 @@ env:
   FRONTEND_IMAGE: jai3747/imdb-clone-frontend
   BACKEND_IMAGE: jai3747/imdb-clone-backend
   HELM_VERSION: v3.12.0
-  CHART_PATH: ./backend/imdb-clone
+  CHART_PATH: ./backend/.github/actions/k8s-setup
 
 jobs:
   # Frontend Security Scans - Running in Parallel
