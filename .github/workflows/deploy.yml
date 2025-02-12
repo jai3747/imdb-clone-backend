@@ -5514,7 +5514,10 @@ jobs:
         cache: npm
 
     - name: Install Dependencies
-      run: npm clean-install
+      run: |
+        rm -rf node_modules
+        rm -f package-lock.json
+        npm install
 
     - name: Run Tests
       run: npm test
