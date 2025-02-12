@@ -17,8 +17,8 @@ env:
   CLUSTER_NAME: cluster-1
   CLUSTER_ZONE: asia-south1-a
   APP_DOMAIN: http://myapp.awsaparna123.xyz
-  FRONTEND_IMAGE: imdb-clone-frontend
-  BACKEND_IMAGE: imdb-clone-backend
+  FRONTEND_IMAGE: jai3747/imdb-clone-frontend
+  BACKEND_IMAGE: jai3747/imdb-clone-backend
   HELM_VERSION: v3.12.0
   CHART_PATH: ./backend/imdb-clone
 
