@@ -143,7 +143,7 @@ frontend:
   service:
     type: LoadBalancer
     port: 80
-    targetPort: 3000
+    targetPort: 80
   resources:
     requests:
       memory: "256Mi"
