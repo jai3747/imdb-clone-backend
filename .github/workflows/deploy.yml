@@ -2631,7 +2631,7 @@ jobs:
         name: frontend-checkov-report
         path: checkov-frontend-report.json
         retention-days: 30
-frontend-sonarcloud:
+  frontend-sonarcloud:
   name: 🔊 Frontend SonarCloud
   runs-on: ubuntu-latest
   steps:
@@ -2896,3 +2896,256 @@ backend-sonarcloud:
         name: backend-kubesec-reports
         path: kubesec-backend-*.json
         retention-days: 30
+  frontend-build:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ github.sha }}
+    steps:
+    - name: Checkout Frontend Code
+      uses: actions/checkout@v4
+      with:
+        repository: jai3747/imdb-clone-frontend
+        token: ${{ secrets.GH_PAT }}
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "16"
+        cache: npm
+
+    - name: Install Dependencies
+      run: npm ci
+
+    - name: Run Tests
+      run: npm test
+      continue-on-error: true
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to DockerHub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Build and Push Frontend Image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: |
+          ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+          ${{ env.FRONTEND_IMAGE }}:latest
+        cache-from: type=registry,ref=${{ env.FRONTEND_IMAGE }}:latest
+        cache-to: type=inline
+        build-args: |
+          NODE_ENV=production
+
+  frontend-trivy:
+    needs: [ frontend-build ]
+    name: 🔒 Frontend Trivy
+    runs-on: ubuntu-latest
+    steps:
+    - name: Trivy Scan Frontend Image
+      uses: aquasecurity/trivy-action@master
+      continue-on-error: true
+      with:
+        image-ref: ${{ env.FRONTEND_IMAGE }}:${{ needs.frontend-build.outputs.image_tag }}
+        format: json
+        output: trivy-frontend-report.json
+        severity: CRITICAL,HIGH,MEDIUM
+
+    - name: Upload Frontend Trivy Results
+      uses: actions/upload-artifact@v4
+      with:
+        name: frontend-trivy-report
+        path: trivy-frontend-report.json
+        retention-days: 30
+
+  backend-build:
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ github.sha }}
+    steps:
+    - name: Checkout Backend Code
+      uses: actions/checkout@v4
+      with:
+        repository: jai3747/imdb-clone-backend
+        token: ${{ secrets.GH_PAT }}
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "16"
+        cache: npm
+
+    - name: Install Dependencies
+      run: npm ci
+
+    - name: Run Tests
+      run: npm test
+      continue-on-error: true
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to DockerHub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+
+    - name: Build and Push Backend Image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        push: true
+        tags: |
+          ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+          ${{ env.BACKEND_IMAGE }}:latest
+        cache-from: type=registry,ref=${{ env.BACKEND_IMAGE }}:latest
+        cache-to: type=inline
+        build-args: |
+          NODE_ENV=production
+
+  backend-trivy:
+    needs: [ backend-build ]
+    name: 🔒 Backend Trivy
+    runs-on: ubuntu-latest
+    steps:
+    - name: Trivy Scan Backend Image
+      uses: aquasecurity/trivy-action@master
+      continue-on-error: true
+      with:
+        image-ref: ${{ env.BACKEND_IMAGE }}:${{ needs.backend-build.outputs.image_tag }}
+        format: json
+        output: trivy-backend-report.json
+        severity: CRITICAL,HIGH,MEDIUM
+
+    - name: Upload Backend Trivy Results
+      uses: actions/upload-artifact@v4
+      with:
+        name: backend-trivy-report
+        path: trivy-backend-report.json
+        retention-days: 30
+
+  deploy-dev:
+    needs: [ frontend-build, backend-build, frontend-trivy, backend-trivy ]
+    runs-on: ubuntu-latest
+    environment: development
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      with:
+        repository: jai3747/imdb-clone-backend
+        token: ${{ secrets.GH_PAT }}
+        path: backend
+
+    - name: Setup Kubernetes Tools
+      uses: ./backend/.github/actions/k8s-setup
+      with:
+        helm-version: ${{ env.HELM_VERSION }}
+        gcp-credentials: ${{ secrets.GCP_SA_KEY }}
+        gcp-project-id: ${{ secrets.GCP_PROJECT_ID }}
+        cluster-name: ${{ env.CLUSTER_NAME }}
+        cluster-zone: ${{ env.CLUSTER_ZONE }}
+
+    - name: Create Development Namespace
+      run: |
+        kubectl create namespace development --dry-run=client -o yaml | kubectl apply -f -
+
+    - name: Deploy to Development
+      run: |
+        cd backend
+        helm dependency update imdb-clone/
+        kubectl create secret generic mongodb-secret \
+          --from-literal=mongodb-root-password=${{ secrets.MONGODB_ROOT_PASSWORD }} \
+          --namespace development \
+          --dry-run=client -o yaml | kubectl apply -f -
+        helm upgrade --install imdb-clone-dev imdb-clone/ \
+          -f imdb-clone/values-dev.yaml \
+          --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
+          --namespace development \
+          --atomic \
+          --timeout 10m
+
+  deploy-staging:
+    needs: [ frontend-build, backend-build, frontend-trivy, backend-trivy ]
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      with:
+        repository: jai3747/imdb-clone-backend
+        token: ${{ secrets.GH_PAT }}
+        path: backend
+
+    - name: Setup Kubernetes Tools
+      uses: ./backend/.github/actions/k8s-setup
+      with:
+        helm-version: ${{ env.HELM_VERSION }}
+        gcp-credentials: ${{ secrets.GCP_SA_KEY }}
+        gcp-project-id: ${{ secrets.GCP_PROJECT_ID }}
+        cluster-name: ${{ env.CLUSTER_NAME }}
+        cluster-zone: ${{ env.CLUSTER_ZONE }}
+
+    - name: Create Staging Namespace
+      run: |
+        kubectl create namespace staging --dry-run=client -o yaml | kubectl apply -f -
+
+    - name: Deploy to Staging
+      run: |
+        cd backend
+        helm dependency update imdb-clone/
+        kubectl create secret generic mongodb-secret \
+          --from-literal=mongodb-root-password=${{ secrets.MONGODB_ROOT_PASSWORD }} \
+          --namespace staging \
+          --dry-run=client -o yaml | kubectl apply -f -
+        helm upgrade --install imdb-clone-staging imdb-clone/ \
+          -f imdb-clone/values-staging.yaml \
+          --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
+          --namespace staging \
+          --atomic \
+          --timeout 10m
+
+  deploy-prod:
+    needs: [ deploy-staging ]
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+      with:
+        repository: jai3747/imdb-clone-backend
+        token: ${{ secrets.GH_PAT }}
+        path: backend
+
+    - name: Setup Kubernetes Tools
+      uses: ./backend/.github/actions/k8s-setup
+      with:
+        helm-version: ${{ env.HELM_VERSION }}
+        gcp-credentials: ${{ secrets.GCP_SA_KEY }}
+        gcp-project-id: ${{ secrets.GCP_PROJECT_ID }}
+        cluster-name: ${{ env.CLUSTER_NAME }}
+        cluster-zone: ${{ env.CLUSTER_ZONE }}
+
+    - name: Create Production Namespace
+      run: |
+        kubectl create namespace production --dry-run=client -o yaml | kubectl apply -f -
+
+    - name: Deploy to Production
+      run: |
+        cd backend
+        helm dependency update imdb-clone/
+        kubectl create secret generic mongodb-secret \
+          --from-literal=mongodb-root-password=${{ secrets.MONGODB_ROOT_PASSWORD }} \
+          --namespace production \
+          --dry-run=client -o yaml | kubectl apply -f -
+        helm upgrade --install imdb-clone-prod imdb-clone/ \
+          -f imdb-clone/values-prod.yaml \
+          --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
+          --namespace production \
+          --atomic \
+          --timeout 10m
