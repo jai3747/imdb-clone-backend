@@ -48,7 +48,7 @@ RUN rm -f package-lock.json
 
 # Install dependencies
 RUN npm install
-
+RUN npm install --save-dev babel-jest
 # Copy the rest of the application
 COPY . .
 
