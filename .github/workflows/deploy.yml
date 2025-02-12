@@ -315,15 +315,7 @@ jobs:
     - name: Install dependencies
       run: |
         npm install --legacy-peer-deps
-        npm install -D jest @babel/core @babel/preset-env supertest
-    - name: Create Jest config
-      run: |
-        echo '{
-          "testEnvironment": "node",
-          "coveragePathIgnorePatterns": ["/node_modules/"],
-          "collectCoverageFrom": ["src/**/*.js"],
-          "verbose": true
-        }' > jest.config.json
+        # npm install -D jest @babel/core @babel/preset-env supertest
     - name: Run tests with coverage
       run: npm run test:coverage
     - name: SonarCloud Scan
