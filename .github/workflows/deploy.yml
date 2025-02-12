@@ -1,3 +1,618 @@
+# # # # # name: Security & Build Pipeline
+# # # # # on:
+# # # # #   push:
+# # # # #     branches:
+# # # # #     - main
+# # # # #   pull_request:
+# # # # #     branches:
+# # # # #     - main
+
+# # # # # env:
+# # # # #   GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
+# # # # #   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+# # # # #   MONGO_URL: ${{ secrets.MONGO_URL }}
+# # # # #   SEMGREP_TOKEN: ${{ secrets.SEMGREP_TOKEN }}
+# # # # #   SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+# # # # #   GH_PAT: ${{ secrets.GH_PAT }}
+# # # # #   CLUSTER_NAME: cluster-1
+# # # # #   CLUSTER_ZONE: asia-south1-a
+# # # # #   APP_DOMAIN: http://myapp.awsaparna123.xyz
+# # # # #   FRONTEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/imdb-clone-frontend
+# # # # #   BACKEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/imdb-clone-backend
+# # # # #   HELM_VERSION: v3.12.0
+# # # # #   CHART_PATH: ./backend/imdb-clone
+
+# # # # # permissions:
+# # # # #   contents: read
+# # # # #   security-events: write
+# # # # #   actions: write
+
+# # # # # jobs:
+# # # # #   # Frontend Security Scans - Running in Parallel
+# # # # #   frontend-trufflehog:
+# # # # #     name: 🐷 Frontend TruffleHog
+# # # # #     runs-on: ubuntu-latest
+# # # # #     steps:
+# # # # #     - name: Checkout Frontend Code
+# # # # #       uses: actions/checkout@v4
+# # # # #       with:
+# # # # #         repository: jai3747/imdb-clone-frontend
+# # # # #         token: ${{ secrets.GH_PAT }}
+# # # # #         fetch-depth: 0
+# # # # #     - name: TruffleHog Scan
+# # # # #       uses: trufflesecurity/trufflehog@v3.63.3
+# # # # #       continue-on-error: true
+# # # # #       with:
+# # # # #         path: .
+# # # # #         base: ${{ github.event.before }}
+# # # # #         head: ${{ github.sha }}
+# # # # #         extra_args: --json --output trufflehog-frontend-report.json
+# # # # #     - name: Upload Results
+# # # # #       uses: actions/upload-artifact@v4
+# # # # #       with:
+# # # # #         name: frontend-trufflehog-report
+# # # # #         path: trufflehog-frontend-report.json
+# # # # #         retention-days: 30
+
+# # # # #   frontend-semgrep:
+# # # # #     name: 🔍 Frontend Semgrep
+# # # # #     runs-on: ubuntu-latest
+# # # # #     steps:
+# # # # #     - name: Checkout Frontend Code
+# # # # #       uses: actions/checkout@v4
+# # # # #       with:
+# # # # #         repository: jai3747/imdb-clone-frontend
+# # # # #         token: ${{ secrets.GH_PAT }}
+# # # # #         fetch-depth: 0
+# # # # #     - name: Semgrep Scan
+# # # # #       uses: semgrep/semgrep-action@v1
+# # # # #       continue-on-error: true
+# # # # #       with:
+# # # # #         config: p/javascript
+# # # # #         output: semgrep-frontend-results.json
+# # # # #         json: true
+# # # # #     - name: Upload Results
+# # # # #       uses: actions/upload-artifact@v4
+# # # # #       with:
+# # # # #         name: frontend-semgrep-report
+# # # # #         path: semgrep-frontend-results.json
+# # # # #         retention-days: 30
+
+# # # # #   frontend-snyk:
+# # # # #     name: 🛡️ Frontend Snyk
+# # # # #     runs-on: ubuntu-latest
+# # # # #     steps:
+# # # # #     - name: Checkout Frontend Code
+# # # # #       uses: actions/checkout@v4
+# # # # #       with:
+# # # # #         repository: jai3747/imdb-clone-frontend
+# # # # #         token: ${{ secrets.GH_PAT }}
+# # # # #     - name: Snyk Scan
+# # # # #       uses: snyk/actions/node@master
+# # # # #       continue-on-error: true
+# # # # #       env:
+# # # # #         SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+# # # # #       with:
+# # # # #         command: test --json > snyk-frontend-report.json
+# # # # #     - name: Upload Results
+# # # # #       uses: actions/upload-artifact@v4
+# # # # #       with:
+# # # # #         name: frontend-snyk-report
+# # # # #         path: snyk-frontend-report.json
+# # # # #         retention-days: 30
+
+# # # # #   frontend-checkov:
+# # # # #     name: 🏗️ Frontend Checkov
+# # # # #     runs-on: ubuntu-latest
+# # # # #     steps:
+# # # # #     - name: Checkout Frontend Code
+# # # # #       uses: actions/checkout@v4
+# # # # #       with:
+# # # # #         repository: jai3747/imdb-clone-frontend
+# # # # #         token: ${{ secrets.GH_PAT }}
+# # # # #     - name: Checkov Scan
+# # # # #       uses: bridgecrewio/checkov-action@v12
+# # # # #       continue-on-error: true
+# # # # #       with:
+# # # # #         directory: .
+# # # # #         framework: dockerfile,kubernetes,secrets
+# # # # #         output: json
+# # # # #         output-file-path: checkov-frontend-report.json
+# # # # #     - name: Upload Results
+# # # # #       uses: actions/upload-artifact@v4
+# # # # #       with:
+# # # # #         name: frontend-checkov-report
+# # # # #         path: checkov-frontend-report.json
+# # # # #         retention-days: 30
+
+# # # # #   frontend-sonarcloud:
+# # # # #     name: 🔊 Frontend SonarCloud
+# # # # #     runs-on: ubuntu-latest
+# # # # #     steps:
+# # # # #     - name: Checkout Frontend Code
+# # # # #       uses: actions/checkout@v4
+# # # # #       with:
+# # # # #         repository: jai3747/imdb-clone-frontend
+# # # # #         token: ${{ secrets.GH_PAT }}
+# # # # #         fetch-depth: 0
+# # # # #     - name: Setup Node.js
+# # # # #       uses: actions/setup-node@v4
+# # # # #       with:
+# # # # #         node-version: '18'
+# # # # #     - name: Install dependencies
+# # # # #       run: npm ci
+# # # # #     - name: Run tests with coverage
+# # # # #       run: npm run test:coverage
+# # # # #     - name: SonarCloud Scan
+# # # # #       uses: SonarSource/sonarcloud-github-action@master
+# # # # #       env:
+# # # # #         GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+# # # # #         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+# # # # #       with:
+# # # # #         args: >
+# # # # #           -Dsonar.organization=jayachandran -Dsonar.projectKey=jai3747_imdb-clone-frontend -Dsonar.sources=src -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info -Dsonar.tests=src -Dsonar.test.inclusions=**/*.test.js,**/*.test.jsx -Dsonar.coverage.exclusions=**/*.test.js,**/*.test.jsx,src/index.js,src/reportWebVitals.js
+
+# # # # #   frontend-kubesec:
+# # # # #     name: 🎯 Frontend Kubesec
+# # # # #     runs-on: ubuntu-latest
+# # # # #     steps:
+# # # # #     - name: Checkout Frontend Code
+# # # # #       uses: actions/checkout@v4
+# # # # #       with:
+# # # # #         repository: jai3747/imdb-clone-frontend
+# # # # #         token: ${{ secrets.GH_PAT }}
+# # # # #     - name: Run kubesec for backup.yaml
+# # # # #       uses: controlplaneio/kubesec-action@master
+# # # # #       continue-on-error: true
+# # # # #       with:
+# # # # #         input: backup.yaml
+# # # # #         format: json
+# # # # #         output: kubesec-frontend-backup-report.json
+# # # # #     - name: Run kubesec for backup-pipeline.yaml
+# # # # #       uses: controlplaneio/kubesec-action@master
+# # # # #       continue-on-error: true
+# # # # #       with:
+# # # # #         input: backup-pipeline.yaml
+# # # # #         format: json
+# # # # #         output: kubesec-frontend-backup-pipeline-report.json
+# # # # #     - name: Run kubesec for pipeline.yaml
+# # # # #       uses: controlplaneio/kubesec-action@master
+# # # # #       continue-on-error: true
+# # # # #       with:
+# # # # #         input: pipeline.yaml
+# # # # #         format: json
+# # # # #         output: kubesec-frontend-pipeline-report.json
+# # # # #     - name: Upload Results
+# # # # #       uses: actions/upload-artifact@v4
+# # # # #       with:
+# # # # #         name: frontend-kubesec-reports
+# # # # #         path: kubesec-frontend-*.json
+# # # # #         retention-days: 30
+
+# # # # #   # Backend Security Scans - Running in Parallel
+# # # # #   backend-trufflehog:
+# # # # #     name: 🐷 Backend TruffleHog
+# # # # #     runs-on: ubuntu-latest
+# # # # #     steps:
+# # # # #     - name: Checkout Backend Code
+# # # # #       uses: actions/checkout@v4
+# # # # #       with:
+# # # # #         repository: jai3747/imdb-clone-backend
+# # # # #         token: ${{ secrets.GH_PAT }}
+# # # # #         fetch-depth: 0
+# # # # #     - name: TruffleHog Scan
+# # # # #       uses: trufflesecurity/trufflehog@v3.63.3
+# # # # #       continue-on-error: true
+# # # # #       with:
+# # # # #         path: .
+# # # # #         base: ${{ github.event.before }}
+# # # # #         head: ${{ github.sha }}
+# # # # #         extra_args: --json --output trufflehog-backend-report.json
+# # # # #     - name: Upload Results
+# # # # #       uses: actions/upload-artifact@v4
+# # # # #       with:
+# # # # #         name: backend-trufflehog-report
+# # # # #         path: trufflehog-backend-report.json
+# # # # #         retention-days: 30
+
+# # # # #   backend-semgrep:
+# # # # #     name: 🔍 Backend Semgrep
+# # # # #     runs-on: ubuntu-latest
+# # # # #     steps:
+# # # # #     - name: Checkout Backend Code
+# # # # #       uses: actions/checkout@v4
+# # # # #       with:
+# # # # #         repository: jai3747/imdb-clone-backend
+# # # # #         token: ${{ secrets.GH_PAT }}
+# # # # #         fetch-depth: 0
+# # # # #     - name: Semgrep Scan
+# # # # #       uses: semgrep/semgrep-action@v1
+# # # # #       continue-on-error: true
+# # # # #       with:
+# # # # #         config: p/javascript
+# # # # #         output: semgrep-backend-results.json
+# # # # #         json: true
+# # # # #     - name: Upload Results
+# # # # #       uses: actions/upload-artifact@v4
+# # # # #       with:
+# # # # #         name: backend-semgrep-report
+# # # # #         path: semgrep-backend-results.json
+# # # # #         retention-days: 30
+
+# # # # #   backend-snyk:
+# # # # #     name: 🛡️ Backend Snyk
+# # # # #     runs-on: ubuntu-latest
+# # # # #     steps:
+# # # # #     - name: Checkout Backend Code
+# # # # #       uses: actions/checkout@v4
+# # # # #       with:
+# # # # #         repository: jai3747/imdb-clone-backend
+# # # # #         token: ${{ secrets.GH_PAT }}
+# # # # #     - name: Snyk Scan
+# # # # #       uses: snyk/actions/node@master
+# # # # #       continue-on-error: true
+# # # # #       env:
+# # # # #         SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+# # # # #       with:
+# # # # #         command: test --json > snyk-backend-report.json
+# # # # #     - name: Upload Results
+# # # # #       uses: actions/upload-artifact@v4
+# # # # #       with:
+# # # # #         name: backend-snyk-report
+# # # # #         path: snyk-backend-report.json
+# # # # #         retention-days: 30
+
+# # # # #   backend-checkov:
+# # # # #     name: 🏗️ Backend Checkov
+# # # # #     runs-on: ubuntu-latest
+# # # # #     steps:
+# # # # #     - name: Checkout Backend Code
+# # # # #       uses: actions/checkout@v4
+# # # # #       with:
+# # # # #         repository: jai3747/imdb-clone-backend
+# # # # #         token: ${{ secrets.GH_PAT }}
+# # # # #     - name: Checkov Scan
+# # # # #       uses: bridgecrewio/checkov-action@v12
+# # # # #       continue-on-error: true
+# # # # #       with:
+# # # # #         directory: .
+# # # # #         framework: dockerfile,kubernetes,secrets
+# # # # #         output: json
+# # # # #         output-file-path: checkov-backend-report.json
+# # # # #     - name: Upload Results
+# # # # #       uses: actions/upload-artifact@v4
+# # # # #       with:
+# # # # #         name: backend-checkov-report
+# # # # #         path: checkov-backend-report.json
+# # # # #         retention-days: 30
+
+# # # # #   backend-sonarcloud:
+# # # # #     name: 🔊 Backend SonarCloud
+# # # # #     runs-on: ubuntu-latest
+# # # # #     steps:
+# # # # #     - name: Checkout Backend Code
+# # # # #       uses: actions/checkout@v4
+# # # # #       with:
+# # # # #         repository: jai3747/imdb-clone-backend
+# # # # #         token: ${{ secrets.GH_PAT }}
+# # # # #         fetch-depth: 0
+# # # # #     - name: Setup Node.js
+# # # # #       uses: actions/setup-node@v4
+# # # # #       with:
+# # # # #         node-version: '18'
+# # # # #     - name: Install dependencies
+# # # # #       run: npm ci
+# # # # #     - name: Run tests with coverage
+# # # # #       run: npm run test:coverage
+# # # # #     - name: SonarCloud Scan
+# # # # #       uses: SonarSource/sonarcloud-github-action@master
+# # # # #       env:
+# # # # #         GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+# # # # #         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+# # # # #       with:
+# # # # #         args: >
+# # # # #           -Dsonar.organization=jayachandran -Dsonar.projectKey=jai3747_imdb-clone-backend -Dsonar.sources=src -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info -Dsonar.tests=src -Dsonar.test.inclusions=**/*.test.js -Dsonar.coverage.exclusions=**/*.test.js,src/index.js
+
+# # # # #   backend-kubesec:
+# # # # #     name: 🎯 Backend Kubesec
+# # # # #     runs-on: ubuntu-latest
+# # # # #     steps:
+# # # # #     - name: Checkout Backend Code
+# # # # #       uses: actions/checkout@v4
+# # # # #       with:
+# # # # #         repository: jai3747/imdb-clone-backend
+# # # # #         token: ${{ secrets.GH_PAT }}
+# # # # #     - name: Create merged Helm templates
+# # # # #       run: |
+# # # # #         helm template imdb-clone ./imdb-clone > all-manifests.yaml
+# # # # #     - name: Run kubesec for k8.yaml
+# # # # #       uses: controlplaneio/kubesec-action@master
+# # # # #       continue-on-error: true
+# # # # #       with:
+# # # # #         input: k8.yaml
+# # # # #         format: json
+# # # # #         output: kubesec-backend-k8-report.json
+# # # # #     - name: Run kubesec for test-working-fine.yaml
+# # # # #       uses: controlplaneio/kubesec-action@master
+# # # # #       continue-on-error: true
+# # # # #       with:
+# # # # #         input: test-working-fine.yaml
+# # # # #         format: json
+# # # # #         output: kubesec-backend-test-report.json
+# # # # #     - name: Run kubesec for all-tested-pipeline.yaml
+# # # # #       uses: controlplaneio/kubesec-action@master
+# # # # #       continue-on-error: true
+# # # # #       with:
+# # # # #         input: all-tested-pipeline.yaml
+# # # # #         format: json
+# # # # #         output: kubesec-backend-pipeline-report.json
+# # # # #     - name: Run kubesec for Helm templates
+# # # # #       uses: controlplaneio/kubesec-action@master
+# # # # #       continue-on-error: true
+# # # # #       with:
+# # # # #         input: all-manifests.yaml
+# # # # #         format: json
+# # # # #         output: kubesec-backend-helm-report.json
+# # # # #     - name: Upload Results
+# # # # #       uses: actions/upload-artifact@v4
+# # # # #       with:
+# # # # #         name: backend-kubesec-reports
+# # # # #         path: kubesec-backend-*.json
+# # # # #         retention-days: 30
+
+# # # # #   frontend-build:
+# # # # #     runs-on: ubuntu-latest
+# # # # #     outputs:
+# # # # #       image_tag: ${{ github.sha }}
+# # # # #     steps:
+# # # # #     - name: Checkout Frontend Code
+# # # # #       uses: actions/checkout@v4
+# # # # #       with:
+# # # # #         repository: jai3747/imdb-clone-frontend
+# # # # #         token: ${{ secrets.GH_PAT }}
+
+# # # # #     - name: Setup Node.js
+# # # # #       uses: actions/setup-node@v4
+# # # # #       with:
+# # # # #         node-version: "16"
+# # # # #         cache: npm
+
+# # # # #     - name: Install Dependencies
+# # # # #       run: npm ci
+
+# # # # #     - name: Run Tests
+# # # # #       run: npm test
+# # # # #       continue-on-error: true
+
+# # # # #     - name: Set up Docker Buildx
+# # # # #       uses: docker/setup-buildx-action@v3
+
+# # # # #     - name: Login to DockerHub
+# # # # #       uses: docker/login-action@v3
+# # # # #       with:
+# # # # #         username: ${{ secrets.DOCKER_USERNAME }}
+# # # # #         password: ${{ secrets.DOCKER_PASSWORD }}
+
+# # # # #     - name: Build and Push Frontend Image
+# # # # #       uses: docker/build-push-action@v5
+# # # # #       with:
+# # # # #         context: .
+# # # # #         push: true
+# # # # #         tags: |
+# # # # #           ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
+# # # # #           ${{ env.FRONTEND_IMAGE }}:latest
+# # # # #         cache-from: type=registry,ref=${{ env.FRONTEND_IMAGE }}:latest
+# # # # #         cache-to: type=inline
+# # # # #         build-args: |
+# # # # #           NODE_ENV=production
+
+# # # # #   frontend-trivy:
+# # # # #     needs: [ frontend-build ]
+# # # # #     name: 🔒 Frontend Trivy
+# # # # #     runs-on: ubuntu-latest
+# # # # #     steps:
+# # # # #     - name: Trivy Scan Frontend Image
+# # # # #       uses: aquasecurity/trivy-action@master
+# # # # #       continue-on-error: true
+# # # # #       with:
+# # # # #         image-ref: ${{ env.FRONTEND_IMAGE }}:${{ needs.frontend-build.outputs.image_tag }}
+# # # # #         format: json
+# # # # #         output: trivy-frontend-report.json
+# # # # #         severity: CRITICAL,HIGH,MEDIUM
+
+# # # # #     - name: Upload Frontend Trivy Results
+# # # # #       uses: actions/upload-artifact@v4
+# # # # #       with:
+# # # # #         name: frontend-trivy-report
+# # # # #         path: trivy-frontend-report.json
+# # # # #         retention-days: 30
+
+# # # # #   backend-build:
+# # # # #     runs-on: ubuntu-latest
+# # # # #     outputs:
+# # # # #       image_tag: ${{ github.sha }}
+# # # # #     steps:
+# # # # #     - name: Checkout Backend Code
+# # # # #       uses: actions/checkout@v4
+# # # # #       with:
+# # # # #         repository: jai3747/imdb-clone-backend
+# # # # #         token: ${{ secrets.GH_PAT }}
+
+# # # # #     - name: Setup Node.js
+# # # # #       uses: actions/setup-node@v4
+# # # # #       with:
+# # # # #         node-version: "16"
+# # # # #         cache: npm
+
+# # # # #     - name: Install Dependencies
+# # # # #       run: npm ci
+
+# # # # #     - name: Run Tests
+# # # # #       run: npm test
+# # # # #       continue-on-error: true
+
+# # # # #     - name: Set up Docker Buildx
+# # # # #       uses: docker/setup-buildx-action@v3
+
+# # # # #     - name: Login to DockerHub
+# # # # #       uses: docker/login-action@v3
+# # # # #       with:
+# # # # #         username: ${{ secrets.DOCKER_USERNAME }}
+# # # # #         password: ${{ secrets.DOCKER_PASSWORD }}
+
+# # # # #     - name: Build and Push Backend Image
+# # # # #       uses: docker/build-push-action@v5
+# # # # #       with:
+# # # # #         context: .
+# # # # #         push: true
+# # # # #         tags: |
+# # # # #           ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
+# # # # #           ${{ env.BACKEND_IMAGE }}:latest
+# # # # #         cache-from: type=registry,ref=${{ env.BACKEND_IMAGE }}:latest
+# # # # #         cache-to: type=inline
+# # # # #         build-args: |
+# # # # #           NODE_ENV=production
+
+# # # # #   backend-trivy:
+# # # # #     needs: [ backend-build ]
+# # # # #     name: 🔒 Backend Trivy
+# # # # #     runs-on: ubuntu-latest
+# # # # #     steps:
+# # # # #     - name: Trivy Scan Backend Image
+# # # # #       uses: aquasecurity/trivy-action@master
+# # # # #       continue-on-error: true
+# # # # #       with:
+# # # # #         image-ref: ${{ env.BACKEND_IMAGE }}:${{ needs.backend-build.outputs.image_tag }}
+# # # # #         format: json
+# # # # #         output: trivy-backend-report.json
+# # # # #         severity: CRITICAL,HIGH,MEDIUM
+
+# # # # #     - name: Upload Backend Trivy Results
+# # # # #       uses: actions/upload-artifact@v4
+# # # # #       with:
+# # # # #         name: backend-trivy-report
+# # # # #         path: trivy-backend-report.json
+# # # # #         retention-days: 30
+
+# # # # #   deploy-dev:
+# # # # #     needs: [ frontend-build, backend-build, frontend-trivy, backend-trivy ]
+# # # # #     runs-on: ubuntu-latest
+# # # # #     environment: development
+# # # # #     steps:
+# # # # #     - name: Checkout Code
+# # # # #       uses: actions/checkout@v4
+# # # # #       with:
+# # # # #         repository: jai3747/imdb-clone-backend
+# # # # #         token: ${{ secrets.GH_PAT }}
+# # # # #         path: backend
+
+# # # # #     - name: Setup Kubernetes Tools
+# # # # #       uses: ./backend/.github/actions/k8s-setup
+# # # # #       with:
+# # # # #         helm-version: ${{ env.HELM_VERSION }}
+# # # # #         gcp-credentials: ${{ secrets.GCP_SA_KEY }}
+# # # # #         gcp-project-id: ${{ secrets.GCP_PROJECT_ID }}
+# # # # #         cluster-name: ${{ env.CLUSTER_NAME }}
+# # # # #         cluster-zone: ${{ env.CLUSTER_ZONE }}
+
+# # # # #     - name: Create Development Namespace
+# # # # #       run: |
+# # # # #         kubectl create namespace development --dry-run=client -o yaml | kubectl apply -f -
+
+# # # # #     - name: Deploy to Development
+# # # # #       run: |
+# # # # #         cd backend
+# # # # #         helm dependency update imdb-clone/
+# # # # #         kubectl create secret generic mongodb-secret \
+# # # # #           --from-literal=mongodb-root-password=${{ secrets.MONGODB_ROOT_PASSWORD }} \
+# # # # #           --namespace development \
+# # # # #           --dry-run=client -o yaml | kubectl apply -f -
+# # # # #         helm upgrade --install imdb-clone-dev imdb-clone/ \
+# # # # #           -f imdb-clone/values-dev.yaml \
+# # # # #           --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
+# # # # #           --namespace development \
+# # # # #           --atomic \
+# # # # #           --timeout 10m
+
+# # # # #   deploy-staging:
+# # # # #     needs: [ frontend-build, backend-build, frontend-trivy, backend-trivy ]
+# # # # #     runs-on: ubuntu-latest
+# # # # #     environment: staging
+# # # # #     steps:
+# # # # #     - name: Checkout Code
+# # # # #       uses: actions/checkout@v4
+# # # # #       with:
+# # # # #         repository: jai3747/imdb-clone-backend
+# # # # #         token: ${{ secrets.GH_PAT }}
+# # # # #         path: backend
+
+# # # # #     - name: Setup Kubernetes Tools
+# # # # #       uses: ./backend/.github/actions/k8s-setup
+# # # # #       with:
+# # # # #         helm-version: ${{ env.HELM_VERSION }}
+# # # # #         gcp-credentials: ${{ secrets.GCP_SA_KEY }}
+# # # # #         gcp-project-id: ${{ secrets.GCP_PROJECT_ID }}
+# # # # #         cluster-name: ${{ env.CLUSTER_NAME }}
+# # # # #         cluster-zone: ${{ env.CLUSTER_ZONE }}
+
+# # # # #     - name: Create Staging Namespace
+# # # # #       run: |
+# # # # #         kubectl create namespace staging --dry-run=client -o yaml | kubectl apply -f -
+
+# # # # #     - name: Deploy to Staging
+# # # # #       run: |
+# # # # #         cd backend
+# # # # #         helm dependency update imdb-clone/
+# # # # #         kubectl create secret generic mongodb-secret \
+# # # # #           --from-literal=mongodb-root-password=${{ secrets.MONGODB_ROOT_PASSWORD }} \
+# # # # #           --namespace staging \
+# # # # #           --dry-run=client -o yaml | kubectl apply -f -
+# # # # #         helm upgrade --install imdb-clone-staging imdb-clone/ \
+# # # # #           -f imdb-clone/values-staging.yaml \
+# # # # #           --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
+# # # # #           --namespace staging \
+# # # # #           --atomic \
+# # # # #           --timeout 10m
+
+# # # # #   deploy-prod:
+# # # # #     needs: [ deploy-staging ]
+# # # # #     runs-on: ubuntu-latest
+# # # # #     environment: production
+# # # # #     steps:
+# # # # #     - name: Checkout Code
+# # # # #       uses: actions/checkout@v4
+# # # # #       with:
+# # # # #         repository: jai3747/imdb-clone-backend
+# # # # #         token: ${{ secrets.GH_PAT }}
+# # # # #         path: backend
+
+# # # # #     - name: Setup Kubernetes Tools
+# # # # #       uses: ./backend/.github/actions/k8s-setup
+# # # # #       with:
+# # # # #         helm-version: ${{ env.HELM_VERSION }}
+# # # # #         gcp-credentials: ${{ secrets.GCP_SA_KEY }}
+# # # # #         gcp-project-id: ${{ secrets.GCP_PROJECT_ID }}
+# # # # #         cluster-name: ${{ env.CLUSTER_NAME }}
+# # # # #         cluster-zone: ${{ env.CLUSTER_ZONE }}
+
+# # # # #     - name: Create Production Namespace
+# # # # #       run: |
+# # # # #         kubectl create namespace production --dry-run=client -o yaml | kubectl apply -f -
+
+# # # # #     - name: Deploy to Production
+# # # # #       run: |
+# # # # #         cd backend
+# # # # #         helm dependency update imdb-clone/
+# # # # #         kubectl create secret generic mongodb-secret \
+# # # # #           --from-literal=mongodb-root-password=${{ secrets.MONGODB_ROOT_PASSWORD }} \
+# # # # #           --namespace production \
+# # # # #           --dry-run=client -o yaml | kubectl apply -f -
+# # # # #         helm upgrade --install imdb-clone-prod imdb-clone/ \
+# # # # #           -f imdb-clone/values-prod.yaml \
+# # # # #           --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
+# # # # #           --namespace production \
+# # # # #           --atomic \
+# # # # #           --timeout 10m
 # # # # name: Security & Build Pipeline
 # # # # on:
 # # # #   push:
@@ -161,27 +776,19 @@
 # # # #       with:
 # # # #         repository: jai3747/imdb-clone-frontend
 # # # #         token: ${{ secrets.GH_PAT }}
-# # # #     - name: Run kubesec for backup.yaml
-# # # #       uses: controlplaneio/kubesec-action@master
+# # # #     - name: Install kubesec
+# # # #       run: |
+# # # #         wget https://github.com/controlplaneio/kubesec/releases/download/v2.11.5/kubesec_linux_amd64.tar.gz
+# # # #         tar xzf kubesec_linux_amd64.tar.gz
+# # # #         sudo mv kubesec /usr/local/bin/
+# # # #     - name: Run kubesec scans
 # # # #       continue-on-error: true
-# # # #       with:
-# # # #         input: backup.yaml
-# # # #         format: json
-# # # #         output: kubesec-frontend-backup-report.json
-# # # #     - name: Run kubesec for backup-pipeline.yaml
-# # # #       uses: controlplaneio/kubesec-action@master
-# # # #       continue-on-error: true
-# # # #       with:
-# # # #         input: backup-pipeline.yaml
-# # # #         format: json
-# # # #         output: kubesec-frontend-backup-pipeline-report.json
-# # # #     - name: Run kubesec for pipeline.yaml
-# # # #       uses: controlplaneio/kubesec-action@master
-# # # #       continue-on-error: true
-# # # #       with:
-# # # #         input: pipeline.yaml
-# # # #         format: json
-# # # #         output: kubesec-frontend-pipeline-report.json
+# # # #       run: |
+# # # #         for file in backup.yaml backup-pipeline.yaml pipeline.yaml; do
+# # # #           if [ -f "$file" ]; then
+# # # #             kubesec scan -f json "$file" > "kubesec-frontend-$(basename "$file" .yaml)-report.json" || true
+# # # #           fi
+# # # #         done
 # # # #     - name: Upload Results
 # # # #       uses: actions/upload-artifact@v4
 # # # #       with:
@@ -311,8 +918,8 @@
 # # # #         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 # # # #       with:
 # # # #         args: >
+          
 # # # #           -Dsonar.organization=jayachandran -Dsonar.projectKey=jai3747_imdb-clone-backend -Dsonar.sources=src -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info -Dsonar.tests=src -Dsonar.test.inclusions=**/*.test.js -Dsonar.coverage.exclusions=**/*.test.js,src/index.js
-
 # # # #   backend-kubesec:
 # # # #     name: 🎯 Backend Kubesec
 # # # #     runs-on: ubuntu-latest
@@ -322,44 +929,38 @@
 # # # #       with:
 # # # #         repository: jai3747/imdb-clone-backend
 # # # #         token: ${{ secrets.GH_PAT }}
+# # # #     - name: Install kubesec
+# # # #       run: |
+# # # #         wget https://github.com/controlplaneio/kubesec/releases/download/v2.11.5/kubesec_linux_amd64.tar.gz
+# # # #         tar xzf kubesec_linux_amd64.tar.gz
+# # # #         sudo mv kubesec /usr/local/bin/
+# # # #     - name: Install Helm
+# # # #       uses: azure/setup-helm@v3
+# # # #       with:
+# # # #         version: 'v3.12.3'
 # # # #     - name: Create merged Helm templates
 # # # #       run: |
-# # # #         helm template imdb-clone ./imdb-clone > all-manifests.yaml
-# # # #     - name: Run kubesec for k8.yaml
-# # # #       uses: controlplaneio/kubesec-action@master
+# # # #         helm template imdb-clone ./imdb-clone > all-manifests.yaml || true
+# # # #     - name: Run kubesec scans
 # # # #       continue-on-error: true
-# # # #       with:
-# # # #         input: k8.yaml
-# # # #         format: json
-# # # #         output: kubesec-backend-k8-report.json
-# # # #     - name: Run kubesec for test-working-fine.yaml
-# # # #       uses: controlplaneio/kubesec-action@master
-# # # #       continue-on-error: true
-# # # #       with:
-# # # #         input: test-working-fine.yaml
-# # # #         format: json
-# # # #         output: kubesec-backend-test-report.json
-# # # #     - name: Run kubesec for all-tested-pipeline.yaml
-# # # #       uses: controlplaneio/kubesec-action@master
-# # # #       continue-on-error: true
-# # # #       with:
-# # # #         input: all-tested-pipeline.yaml
-# # # #         format: json
-# # # #         output: kubesec-backend-pipeline-report.json
-# # # #     - name: Run kubesec for Helm templates
-# # # #       uses: controlplaneio/kubesec-action@master
-# # # #       continue-on-error: true
-# # # #       with:
-# # # #         input: all-manifests.yaml
-# # # #         format: json
-# # # #         output: kubesec-backend-helm-report.json
+# # # #       run: |
+# # # #         # Scan individual YAML files
+# # # #         for file in k8.yaml test-working-fine.yaml all-tested-pipeline.yaml; do
+# # # #           if [ -f "$file" ]; then
+# # # #             kubesec scan -f json "$file" > "kubesec-backend-$(basename "$file" .yaml)-report.json" || true
+# # # #           fi
+# # # #         done
+        
+# # # #         # Scan Helm templates if they were generated
+# # # #         if [ -f "all-manifests.yaml" ]; then
+# # # #           kubesec scan -f json all-manifests.yaml > kubesec-backend-helm-report.json || true
+# # # #         fi
 # # # #     - name: Upload Results
 # # # #       uses: actions/upload-artifact@v4
 # # # #       with:
 # # # #         name: backend-kubesec-reports
 # # # #         path: kubesec-backend-*.json
 # # # #         retention-days: 30
-
 # # # #   frontend-build:
 # # # #     runs-on: ubuntu-latest
 # # # #     outputs:
@@ -613,18 +1214,17 @@
 # # # #           --namespace production \
 # # # #           --atomic \
 # # # #           --timeout 10m
-# # # name: Security & Build Pipeline
+# # # name: CI/CD Pipeline
+
 # # # on:
 # # #   push:
-# # #     branches:
-# # #     - main
+# # #     branches: [ main ]
 # # #   pull_request:
-# # #     branches:
-# # #     - main
+# # #     branches: [ main ]
 
 # # # env:
-# # #   GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
 # # #   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+# # #   GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
 # # #   MONGO_URL: ${{ secrets.MONGO_URL }}
 # # #   SEMGREP_TOKEN: ${{ secrets.SEMGREP_TOKEN }}
 # # #   SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
@@ -632,15 +1232,17 @@
 # # #   CLUSTER_NAME: cluster-1
 # # #   CLUSTER_ZONE: asia-south1-a
 # # #   APP_DOMAIN: http://myapp.awsaparna123.xyz
-# # #   FRONTEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/imdb-clone-frontend
-# # #   BACKEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/imdb-clone-backend
+# # #   FRONTEND_IMAGE: ${{ secrets.FRONTEND_IMAGE }}
+# # #   BACKEND_IMAGE: ${{ secrets.BACKEND_IMAGE }}
 # # #   HELM_VERSION: v3.12.0
 # # #   CHART_PATH: ./backend/imdb-clone
 
-# # # permissions:
-# # #   contents: read
-# # #   security-events: write
-# # #   actions: write
+
+
+
+
+
+
 
 # # # jobs:
 # # #   # Frontend Security Scans - Running in Parallel
@@ -750,14 +1352,43 @@
 # # #         repository: jai3747/imdb-clone-frontend
 # # #         token: ${{ secrets.GH_PAT }}
 # # #         fetch-depth: 0
+
 # # #     - name: Setup Node.js
 # # #       uses: actions/setup-node@v4
 # # #       with:
 # # #         node-version: '18'
+# # #         cache: 'npm'
+
 # # #     - name: Install dependencies
-# # #       run: npm ci
+# # #       run: |
+# # #         npm ci
+# # #         npm install -D jest @babel/core @babel/preset-env @babel/preset-react jest-environment-jsdom identity-obj-proxy
+
+# # #     - name: Create Jest config
+# # #       run: |
+# # #         echo "module.exports = {
+# # #           testEnvironment: 'jsdom',
+# # #           moduleNameMapper: {
+# # #             '\\.(css|less|scss|sass)$': 'identity-obj-proxy'
+# # #           },
+# # #           setupFilesAfterEnv: ['<rootDir>/src/setupTests.js'],
+# # #           transform: {
+# # #             '^.+\\.(js|jsx)$': 'babel-jest'
+# # #           }
+# # #         }" > jest.config.js
+
+# # #     - name: Create Babel config
+# # #       run: |
+# # #         echo "module.exports = {
+# # #           presets: [
+# # #             '@babel/preset-env',
+# # #             ['@babel/preset-react', {runtime: 'automatic'}]
+# # #           ]
+# # #         };" > babel.config.js
+
 # # #     - name: Run tests with coverage
 # # #       run: npm run test:coverage
+
 # # #     - name: SonarCloud Scan
 # # #       uses: SonarSource/sonarcloud-github-action@master
 # # #       env:
@@ -765,7 +1396,7 @@
 # # #         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 # # #       with:
 # # #         args: >
-# # #           -Dsonar.organization=jayachandran -Dsonar.projectKey=jai3747_imdb-clone-frontend -Dsonar.sources=src -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info -Dsonar.tests=src -Dsonar.test.inclusions=**/*.test.js,**/*.test.jsx -Dsonar.coverage.exclusions=**/*.test.js,**/*.test.jsx,src/index.js,src/reportWebVitals.js
+# # #           -Dsonar.organization=jai3747 -Dsonar.projectKey=jai3747_imdb-clone-frontend -Dsonar.sources=src -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info -Dsonar.tests=src -Dsonar.test.inclusions=**/*.test.js,**/*.test.jsx -Dsonar.coverage.exclusions=**/*.test.js,**/*.test.jsx,src/index.js,src/reportWebVitals.js
 
 # # #   frontend-kubesec:
 # # #     name: 🎯 Frontend Kubesec
@@ -776,19 +1407,27 @@
 # # #       with:
 # # #         repository: jai3747/imdb-clone-frontend
 # # #         token: ${{ secrets.GH_PAT }}
-# # #     - name: Install kubesec
-# # #       run: |
-# # #         wget https://github.com/controlplaneio/kubesec/releases/download/v2.11.5/kubesec_linux_amd64.tar.gz
-# # #         tar xzf kubesec_linux_amd64.tar.gz
-# # #         sudo mv kubesec /usr/local/bin/
-# # #     - name: Run kubesec scans
+# # #     - name: Run kubesec for backup.yaml
+# # #       uses: controlplaneio/kubesec-action@master
 # # #       continue-on-error: true
-# # #       run: |
-# # #         for file in backup.yaml backup-pipeline.yaml pipeline.yaml; do
-# # #           if [ -f "$file" ]; then
-# # #             kubesec scan -f json "$file" > "kubesec-frontend-$(basename "$file" .yaml)-report.json" || true
-# # #           fi
-# # #         done
+# # #       with:
+# # #         input: backup.yaml
+# # #         format: json
+# # #         output: kubesec-frontend-backup-report.json
+# # #     - name: Run kubesec for backup-pipeline.yaml
+# # #       uses: controlplaneio/kubesec-action@master
+# # #       continue-on-error: true
+# # #       with:
+# # #         input: backup-pipeline.yaml
+# # #         format: json
+# # #         output: kubesec-frontend-backup-pipeline-report.json
+# # #     - name: Run kubesec for pipeline.yaml
+# # #       uses: controlplaneio/kubesec-action@master
+# # #       continue-on-error: true
+# # #       with:
+# # #         input: pipeline.yaml
+# # #         format: json
+# # #         output: kubesec-frontend-pipeline-report.json
 # # #     - name: Upload Results
 # # #       uses: actions/upload-artifact@v4
 # # #       with:
@@ -903,14 +1542,29 @@
 # # #         repository: jai3747/imdb-clone-backend
 # # #         token: ${{ secrets.GH_PAT }}
 # # #         fetch-depth: 0
+
 # # #     - name: Setup Node.js
 # # #       uses: actions/setup-node@v4
 # # #       with:
 # # #         node-version: '18'
+# # #         cache: 'npm'
+
 # # #     - name: Install dependencies
-# # #       run: npm ci
+# # #       run: |
+# # #         npm ci
+# # #         npm install -D jest @babel/core @babel/preset-env supertest
+
+# # #     - name: Create Jest config
+# # #       run: |
+# # #         echo "module.exports = {
+# # #           testEnvironment: 'node',
+# # #           coveragePathIgnorePatterns: ['/node_modules/'],
+# # #           collectCoverageFrom: ['src/**/*.js'],
+# # #         }" > jest.config.js
+
 # # #     - name: Run tests with coverage
 # # #       run: npm run test:coverage
+
 # # #     - name: SonarCloud Scan
 # # #       uses: SonarSource/sonarcloud-github-action@master
 # # #       env:
@@ -918,8 +1572,8 @@
 # # #         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 # # #       with:
 # # #         args: >
-          
-# # #           -Dsonar.organization=jayachandran -Dsonar.projectKey=jai3747_imdb-clone-backend -Dsonar.sources=src -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info -Dsonar.tests=src -Dsonar.test.inclusions=**/*.test.js -Dsonar.coverage.exclusions=**/*.test.js,src/index.js
+# # #           -Dsonar.organization=jai3747 -Dsonar.projectKey=jai3747_imdb-clone-backend -Dsonar.sources=src -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info -Dsonar.tests=src -Dsonar.test.inclusions=**/*.test.js -Dsonar.coverage.exclusions=**/*.test.js,src/index.js
+
 # # #   backend-kubesec:
 # # #     name: 🎯 Backend Kubesec
 # # #     runs-on: ubuntu-latest
@@ -929,32 +1583,37 @@
 # # #       with:
 # # #         repository: jai3747/imdb-clone-backend
 # # #         token: ${{ secrets.GH_PAT }}
-# # #     - name: Install kubesec
-# # #       run: |
-# # #         wget https://github.com/controlplaneio/kubesec/releases/download/v2.11.5/kubesec_linux_amd64.tar.gz
-# # #         tar xzf kubesec_linux_amd64.tar.gz
-# # #         sudo mv kubesec /usr/local/bin/
-# # #     - name: Install Helm
-# # #       uses: azure/setup-helm@v3
-# # #       with:
-# # #         version: 'v3.12.3'
 # # #     - name: Create merged Helm templates
 # # #       run: |
-# # #         helm template imdb-clone ./imdb-clone > all-manifests.yaml || true
-# # #     - name: Run kubesec scans
+# # #         helm template imdb-clone ./imdb-clone > all-manifests.yaml
+# # #     - name: Run kubesec for k8.yaml
+# # #       uses: controlplaneio/kubesec-action@master
 # # #       continue-on-error: true
-# # #       run: |
-# # #         # Scan individual YAML files
-# # #         for file in k8.yaml test-working-fine.yaml all-tested-pipeline.yaml; do
-# # #           if [ -f "$file" ]; then
-# # #             kubesec scan -f json "$file" > "kubesec-backend-$(basename "$file" .yaml)-report.json" || true
-# # #           fi
-# # #         done
-        
-# # #         # Scan Helm templates if they were generated
-# # #         if [ -f "all-manifests.yaml" ]; then
-# # #           kubesec scan -f json all-manifests.yaml > kubesec-backend-helm-report.json || true
-# # #         fi
+# # #       with:
+# # #         input: k8.yaml
+# # #         format: json
+# # #         output: kubesec-backend-k8-report.json
+# # #     - name: Run kubesec for test-working-fine.yaml
+# # #       uses: controlplaneio/kubesec-action@master
+# # #       continue-on-error: true
+# # #       with:
+# # #         input: test-working-fine.yaml
+# # #         format: json
+# # #         output: kubesec-backend-test-report.json
+# # #     - name: Run kubesec for all-tested-pipeline.yaml
+# # #       uses: controlplaneio/kubesec-action@master
+# # #       continue-on-error: true
+# # #       with:
+# # #         input: all-tested-pipeline.yaml
+# # #         format: json
+# # #         output: kubesec-backend-pipeline-report.json
+# # #     - name: Run kubesec for Helm templates
+# # #       uses: controlplaneio/kubesec-action@master
+# # #       continue-on-error: true
+# # #       with:
+# # #         input: all-manifests.yaml
+# # #         format: json
+# # #         output: kubesec-backend-helm-report.json
 # # #     - name: Upload Results
 # # #       uses: actions/upload-artifact@v4
 # # #       with:
@@ -1237,13 +1896,6 @@
 # #   HELM_VERSION: v3.12.0
 # #   CHART_PATH: ./backend/imdb-clone
 
-
-
-
-
-
-
-
 # # jobs:
 # #   # Frontend Security Scans - Running in Parallel
 # #   frontend-trufflehog:
@@ -1341,63 +1993,62 @@
 # #         name: frontend-checkov-report
 # #         path: checkov-frontend-report.json
 # #         retention-days: 30
+# # frontend-sonarcloud:
+# #   name: 🔊 Frontend SonarCloud
+# #   runs-on: ubuntu-latest
+# #   steps:
+# #   - name: Checkout Frontend Code
+# #     uses: actions/checkout@v4
+# #     with:
+# #       repository: jai3747/imdb-clone-frontend
+# #       token: ${{ secrets.GH_PAT }}
+# #       fetch-depth: 0
 
-# #   frontend-sonarcloud:
-# #     name: 🔊 Frontend SonarCloud
-# #     runs-on: ubuntu-latest
-# #     steps:
-# #     - name: Checkout Frontend Code
-# #       uses: actions/checkout@v4
-# #       with:
-# #         repository: jai3747/imdb-clone-frontend
-# #         token: ${{ secrets.GH_PAT }}
-# #         fetch-depth: 0
+# #   - name: Setup Node.js
+# #     uses: actions/setup-node@v4
+# #     with:
+# #       node-version: '18'
+# #       cache: 'npm'
 
-# #     - name: Setup Node.js
-# #       uses: actions/setup-node@v4
-# #       with:
-# #         node-version: '18'
-# #         cache: 'npm'
+# #   - name: Install dependencies
+# #     run: |
+# #       npm install --legacy-peer-deps
+# #       npm install -D jest @babel/core @babel/preset-env @babel/preset-react jest-environment-jsdom identity-obj-proxy @testing-library/react @testing-library/jest-dom
 
-# #     - name: Install dependencies
-# #       run: |
-# #         npm ci
-# #         npm install -D jest @babel/core @babel/preset-env @babel/preset-react jest-environment-jsdom identity-obj-proxy
+# #   - name: Create Jest config
+# #     run: |
+# #       echo '{
+# #         "testEnvironment": "jsdom",
+# #         "moduleNameMapper": {
+# #           "\\.(css|less|scss|sass)$": "identity-obj-proxy"
+# #         },
+# #         "setupFilesAfterEnv": ["<rootDir>/src/setupTests.js"],
+# #         "transform": {
+# #           "^.+\\.(js|jsx)$": "babel-jest"
+# #         },
+# #         "testMatch": ["**/__tests__/**/*.js?(x)", "**/?(*.)+(spec|test).js?(x)"]
+# #       }' > jest.config.json
 
-# #     - name: Create Jest config
-# #       run: |
-# #         echo "module.exports = {
-# #           testEnvironment: 'jsdom',
-# #           moduleNameMapper: {
-# #             '\\.(css|less|scss|sass)$': 'identity-obj-proxy'
-# #           },
-# #           setupFilesAfterEnv: ['<rootDir>/src/setupTests.js'],
-# #           transform: {
-# #             '^.+\\.(js|jsx)$': 'babel-jest'
-# #           }
-# #         }" > jest.config.js
+# #   - name: Create Babel config
+# #     run: |
+# #       echo '{
+# #         "presets": [
+# #           "@babel/preset-env",
+# #           ["@babel/preset-react", {"runtime": "automatic"}]
+# #         ]
+# #       }' > babel.config.json
 
-# #     - name: Create Babel config
-# #       run: |
-# #         echo "module.exports = {
-# #           presets: [
-# #             '@babel/preset-env',
-# #             ['@babel/preset-react', {runtime: 'automatic'}]
-# #           ]
-# #         };" > babel.config.js
+# #   - name: Run tests with coverage
+# #     run: npm run test:coverage
 
-# #     - name: Run tests with coverage
-# #       run: npm run test:coverage
-
-# #     - name: SonarCloud Scan
-# #       uses: SonarSource/sonarcloud-github-action@master
-# #       env:
-# #         GITHUB_TOKEN: ${{ secrets.GH_PAT }}
-# #         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-# #       with:
-# #         args: >
-# #           -Dsonar.organization=jai3747 -Dsonar.projectKey=jai3747_imdb-clone-frontend -Dsonar.sources=src -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info -Dsonar.tests=src -Dsonar.test.inclusions=**/*.test.js,**/*.test.jsx -Dsonar.coverage.exclusions=**/*.test.js,**/*.test.jsx,src/index.js,src/reportWebVitals.js
-
+# #   - name: SonarCloud Scan
+# #     uses: SonarSource/sonarcloud-github-action@master
+# #     env:
+# #       GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+# #       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+# #     with:
+# #       args: >
+# #         -Dsonar.organization=jai3747 -Dsonar.projectKey=jai3747_imdb-clone-frontend -Dsonar.sources=src -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info -Dsonar.tests=src -Dsonar.test.inclusions=**/*.test.js,**/*.test.jsx -Dsonar.coverage.exclusions=**/*.test.js,**/*.test.jsx,src/index.js,src/reportWebVitals.js,src/setupTests.js
 # #   frontend-kubesec:
 # #     name: 🎯 Frontend Kubesec
 # #     runs-on: ubuntu-latest
@@ -1407,27 +2058,19 @@
 # #       with:
 # #         repository: jai3747/imdb-clone-frontend
 # #         token: ${{ secrets.GH_PAT }}
-# #     - name: Run kubesec for backup.yaml
-# #       uses: controlplaneio/kubesec-action@master
+# #     - name: Install kubesec
+# #       run: |
+# #         wget https://github.com/controlplaneio/kubesec/releases/download/v2.11.5/kubesec_linux_amd64.tar.gz
+# #         tar xzf kubesec_linux_amd64.tar.gz
+# #         sudo mv kubesec /usr/local/bin/
+# #     - name: Run kubesec scans
 # #       continue-on-error: true
-# #       with:
-# #         input: backup.yaml
-# #         format: json
-# #         output: kubesec-frontend-backup-report.json
-# #     - name: Run kubesec for backup-pipeline.yaml
-# #       uses: controlplaneio/kubesec-action@master
-# #       continue-on-error: true
-# #       with:
-# #         input: backup-pipeline.yaml
-# #         format: json
-# #         output: kubesec-frontend-backup-pipeline-report.json
-# #     - name: Run kubesec for pipeline.yaml
-# #       uses: controlplaneio/kubesec-action@master
-# #       continue-on-error: true
-# #       with:
-# #         input: pipeline.yaml
-# #         format: json
-# #         output: kubesec-frontend-pipeline-report.json
+# #       run: |
+# #         for file in backup.yaml backup-pipeline.yaml pipeline.yaml; do
+# #           if [ -f "$file" ]; then
+# #             kubesec scan -f json "$file" > "kubesec-frontend-$(basename "$file" .yaml)-report.json" || true
+# #           fi
+# #         done
 # #     - name: Upload Results
 # #       uses: actions/upload-artifact@v4
 # #       with:
@@ -1532,48 +2175,48 @@
 # #         path: checkov-backend-report.json
 # #         retention-days: 30
 
-# #   backend-sonarcloud:
-# #     name: 🔊 Backend SonarCloud
-# #     runs-on: ubuntu-latest
-# #     steps:
-# #     - name: Checkout Backend Code
-# #       uses: actions/checkout@v4
-# #       with:
-# #         repository: jai3747/imdb-clone-backend
-# #         token: ${{ secrets.GH_PAT }}
-# #         fetch-depth: 0
+# # backend-sonarcloud:
+# #   name: 🔊 Backend SonarCloud
+# #   runs-on: ubuntu-latest
+# #   steps:
+# #   - name: Checkout Backend Code
+# #     uses: actions/checkout@v4
+# #     with:
+# #       repository: jai3747/imdb-clone-backend
+# #       token: ${{ secrets.GH_PAT }}
+# #       fetch-depth: 0
 
-# #     - name: Setup Node.js
-# #       uses: actions/setup-node@v4
-# #       with:
-# #         node-version: '18'
-# #         cache: 'npm'
+# #   - name: Setup Node.js
+# #     uses: actions/setup-node@v4
+# #     with:
+# #       node-version: '18'
+# #       cache: 'npm'
 
-# #     - name: Install dependencies
-# #       run: |
-# #         npm ci
-# #         npm install -D jest @babel/core @babel/preset-env supertest
+# #   - name: Install dependencies
+# #     run: |
+# #       npm install --legacy-peer-deps
+# #       npm install -D jest @babel/core @babel/preset-env supertest
 
-# #     - name: Create Jest config
-# #       run: |
-# #         echo "module.exports = {
-# #           testEnvironment: 'node',
-# #           coveragePathIgnorePatterns: ['/node_modules/'],
-# #           collectCoverageFrom: ['src/**/*.js'],
-# #         }" > jest.config.js
+# #   - name: Create Jest config
+# #     run: |
+# #       echo '{
+# #         "testEnvironment": "node",
+# #         "coveragePathIgnorePatterns": ["/node_modules/"],
+# #         "collectCoverageFrom": ["src/**/*.js"],
+# #         "verbose": true
+# #       }' > jest.config.json
 
-# #     - name: Run tests with coverage
-# #       run: npm run test:coverage
+# #   - name: Run tests with coverage
+# #     run: npm run test:coverage
 
-# #     - name: SonarCloud Scan
-# #       uses: SonarSource/sonarcloud-github-action@master
-# #       env:
-# #         GITHUB_TOKEN: ${{ secrets.GH_PAT }}
-# #         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-# #       with:
-# #         args: >
-# #           -Dsonar.organization=jai3747 -Dsonar.projectKey=jai3747_imdb-clone-backend -Dsonar.sources=src -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info -Dsonar.tests=src -Dsonar.test.inclusions=**/*.test.js -Dsonar.coverage.exclusions=**/*.test.js,src/index.js
-
+# #   - name: SonarCloud Scan
+# #     uses: SonarSource/sonarcloud-github-action@master
+# #     env:
+# #       GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+# #       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+# #     with:
+# #       args: >
+# #         -Dsonar.organization=jai3747 -Dsonar.projectKey=jai3747_imdb-clone-backend -Dsonar.sources=src -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info -Dsonar.tests=src -Dsonar.test.inclusions=**/*.test.js -Dsonar.coverage.exclusions=**/*.test.js,src/index.js,src/config/**,src/middleware/**
 # #   backend-kubesec:
 # #     name: 🎯 Backend Kubesec
 # #     runs-on: ubuntu-latest
@@ -1583,37 +2226,32 @@
 # #       with:
 # #         repository: jai3747/imdb-clone-backend
 # #         token: ${{ secrets.GH_PAT }}
+# #     - name: Install kubesec
+# #       run: |
+# #         wget https://github.com/controlplaneio/kubesec/releases/download/v2.11.5/kubesec_linux_amd64.tar.gz
+# #         tar xzf kubesec_linux_amd64.tar.gz
+# #         sudo mv kubesec /usr/local/bin/
+# #     - name: Install Helm
+# #       uses: azure/setup-helm@v3
+# #       with:
+# #         version: 'v3.12.3'
 # #     - name: Create merged Helm templates
 # #       run: |
-# #         helm template imdb-clone ./imdb-clone > all-manifests.yaml
-# #     - name: Run kubesec for k8.yaml
-# #       uses: controlplaneio/kubesec-action@master
+# #         helm template imdb-clone ./imdb-clone > all-manifests.yaml || true
+# #     - name: Run kubesec scans
 # #       continue-on-error: true
-# #       with:
-# #         input: k8.yaml
-# #         format: json
-# #         output: kubesec-backend-k8-report.json
-# #     - name: Run kubesec for test-working-fine.yaml
-# #       uses: controlplaneio/kubesec-action@master
-# #       continue-on-error: true
-# #       with:
-# #         input: test-working-fine.yaml
-# #         format: json
-# #         output: kubesec-backend-test-report.json
-# #     - name: Run kubesec for all-tested-pipeline.yaml
-# #       uses: controlplaneio/kubesec-action@master
-# #       continue-on-error: true
-# #       with:
-# #         input: all-tested-pipeline.yaml
-# #         format: json
-# #         output: kubesec-backend-pipeline-report.json
-# #     - name: Run kubesec for Helm templates
-# #       uses: controlplaneio/kubesec-action@master
-# #       continue-on-error: true
-# #       with:
-# #         input: all-manifests.yaml
-# #         format: json
-# #         output: kubesec-backend-helm-report.json
+# #       run: |
+# #         # Scan individual YAML files
+# #         for file in k8.yaml test-working-fine.yaml all-tested-pipeline.yaml; do
+# #           if [ -f "$file" ]; then
+# #             kubesec scan -f json "$file" > "kubesec-backend-$(basename "$file" .yaml)-report.json" || true
+# #           fi
+# #         done
+
+# #         # Scan Helm templates if they were generated
+# #         if [ -f "all-manifests.yaml" ]; then
+# #           kubesec scan -f json all-manifests.yaml > kubesec-backend-helm-report.json || true
+# #         fi
 # #     - name: Upload Results
 # #       uses: actions/upload-artifact@v4
 # #       with:
@@ -1993,7 +2631,7 @@
 #         name: frontend-checkov-report
 #         path: checkov-frontend-report.json
 #         retention-days: 30
-# frontend-sonarcloud:
+#   frontend-sonarcloud:
 #   name: 🔊 Frontend SonarCloud
 #   runs-on: ubuntu-latest
 #   steps:
@@ -2631,62 +3269,58 @@ jobs:
         name: frontend-checkov-report
         path: checkov-frontend-report.json
         retention-days: 30
+
   frontend-sonarcloud:
-  name: 🔊 Frontend SonarCloud
-  runs-on: ubuntu-latest
-  steps:
-  - name: Checkout Frontend Code
-    uses: actions/checkout@v4
-    with:
-      repository: jai3747/imdb-clone-frontend
-      token: ${{ secrets.GH_PAT }}
-      fetch-depth: 0
+    name: 🔊 Frontend SonarCloud
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Frontend Code
+      uses: actions/checkout@v4
+      with:
+        repository: jai3747/imdb-clone-frontend
+        token: ${{ secrets.GH_PAT }}
+        fetch-depth: 0
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    - name: Install dependencies
+      run: |
+        npm install --legacy-peer-deps
+        npm install -D jest @babel/core @babel/preset-env @babel/preset-react jest-environment-jsdom identity-obj-proxy @testing-library/react @testing-library/jest-dom
+    - name: Create Jest config
+      run: |
+        echo '{
+          "testEnvironment": "jsdom",
+          "moduleNameMapper": {
+            "\\.(css|less|scss|sass)$": "identity-obj-proxy"
+          },
+          "setupFilesAfterEnv": ["<rootDir>/src/setupTests.js"],
+          "transform": {
+            "^.+\\.(js|jsx)$": "babel-jest"
+          },
+          "testMatch": ["**/__tests__/**/*.js?(x)", "**/?(*.)+(spec|test).js?(x)"]
+        }' > jest.config.json
+    - name: Create Babel config
+      run: |
+        echo '{
+          "presets": [
+            "@babel/preset-env",
+            ["@babel/preset-react", {"runtime": "automatic"}]
+          ]
+        }' > babel.config.json
+    - name: Run tests with coverage
+      run: npm run test:coverage
+    - name: SonarCloud Scan
+      uses: SonarSource/sonarcloud-github-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      with:
+        args: >
+          -Dsonar.organization=jai3747 -Dsonar.projectKey=jai3747_imdb-clone-frontend -Dsonar.sources=src -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info -Dsonar.tests=src -Dsonar.test.inclusions=**/*.test.js,**/*.test.jsx -Dsonar.coverage.exclusions=**/*.test.js,**/*.test.jsx,src/index.js,src/reportWebVitals.js,src/setupTests.js
 
-  - name: Setup Node.js
-    uses: actions/setup-node@v4
-    with:
-      node-version: '18'
-      cache: 'npm'
-
-  - name: Install dependencies
-    run: |
-      npm install --legacy-peer-deps
-      npm install -D jest @babel/core @babel/preset-env @babel/preset-react jest-environment-jsdom identity-obj-proxy @testing-library/react @testing-library/jest-dom
-
-  - name: Create Jest config
-    run: |
-      echo '{
-        "testEnvironment": "jsdom",
-        "moduleNameMapper": {
-          "\\.(css|less|scss|sass)$": "identity-obj-proxy"
-        },
-        "setupFilesAfterEnv": ["<rootDir>/src/setupTests.js"],
-        "transform": {
-          "^.+\\.(js|jsx)$": "babel-jest"
-        },
-        "testMatch": ["**/__tests__/**/*.js?(x)", "**/?(*.)+(spec|test).js?(x)"]
-      }' > jest.config.json
-
-  - name: Create Babel config
-    run: |
-      echo '{
-        "presets": [
-          "@babel/preset-env",
-          ["@babel/preset-react", {"runtime": "automatic"}]
-        ]
-      }' > babel.config.json
-
-  - name: Run tests with coverage
-    run: npm run test:coverage
-
-  - name: SonarCloud Scan
-    uses: SonarSource/sonarcloud-github-action@master
-    env:
-      GITHUB_TOKEN: ${{ secrets.GH_PAT }}
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-    with:
-      args: >
-        -Dsonar.organization=jai3747 -Dsonar.projectKey=jai3747_imdb-clone-frontend -Dsonar.sources=src -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info -Dsonar.tests=src -Dsonar.test.inclusions=**/*.test.js,**/*.test.jsx -Dsonar.coverage.exclusions=**/*.test.js,**/*.test.jsx,src/index.js,src/reportWebVitals.js,src/setupTests.js
   frontend-kubesec:
     name: 🎯 Frontend Kubesec
     runs-on: ubuntu-latest
@@ -2813,48 +3447,44 @@ jobs:
         path: checkov-backend-report.json
         retention-days: 30
 
-backend-sonarcloud:
-  name: 🔊 Backend SonarCloud
-  runs-on: ubuntu-latest
-  steps:
-  - name: Checkout Backend Code
-    uses: actions/checkout@v4
-    with:
-      repository: jai3747/imdb-clone-backend
-      token: ${{ secrets.GH_PAT }}
-      fetch-depth: 0
+  backend-sonarcloud:
+    name: 🔊 Backend SonarCloud
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Backend Code
+      uses: actions/checkout@v4
+      with:
+        repository: jai3747/imdb-clone-backend
+        token: ${{ secrets.GH_PAT }}
+        fetch-depth: 0
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        cache: 'npm'
+    - name: Install dependencies
+      run: |
+        npm install --legacy-peer-deps
+        npm install -D jest @babel/core @babel/preset-env supertest
+    - name: Create Jest config
+      run: |
+        echo '{
+          "testEnvironment": "node",
+          "coveragePathIgnorePatterns": ["/node_modules/"],
+          "collectCoverageFrom": ["src/**/*.js"],
+          "verbose": true
+        }' > jest.config.json
+    - name: Run tests with coverage
+      run: npm run test:coverage
+    - name: SonarCloud Scan
+      uses: SonarSource/sonarcloud-github-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      with:
+        args: >
+          -Dsonar.organization=jai3747 -Dsonar.projectKey=jai3747_imdb-clone-backend -Dsonar.sources=src -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info -Dsonar.tests=src -Dsonar.test.inclusions=**/*.test.js -Dsonar.coverage.exclusions=**/*.test.js,src/index.js,src/config/**,src/middleware/**
 
-  - name: Setup Node.js
-    uses: actions/setup-node@v4
-    with:
-      node-version: '18'
-      cache: 'npm'
-
-  - name: Install dependencies
-    run: |
-      npm install --legacy-peer-deps
-      npm install -D jest @babel/core @babel/preset-env supertest
-
-  - name: Create Jest config
-    run: |
-      echo '{
-        "testEnvironment": "node",
-        "coveragePathIgnorePatterns": ["/node_modules/"],
-        "collectCoverageFrom": ["src/**/*.js"],
-        "verbose": true
-      }' > jest.config.json
-
-  - name: Run tests with coverage
-    run: npm run test:coverage
-
-  - name: SonarCloud Scan
-    uses: SonarSource/sonarcloud-github-action@master
-    env:
-      GITHUB_TOKEN: ${{ secrets.GH_PAT }}
-      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-    with:
-      args: >
-        -Dsonar.organization=jai3747 -Dsonar.projectKey=jai3747_imdb-clone-backend -Dsonar.sources=src -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info -Dsonar.tests=src -Dsonar.test.inclusions=**/*.test.js -Dsonar.coverage.exclusions=**/*.test.js,src/index.js,src/config/**,src/middleware/**
   backend-kubesec:
     name: 🎯 Backend Kubesec
     runs-on: ubuntu-latest
