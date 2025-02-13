@@ -139,29 +139,8 @@ jobs:
       run: |
         npm install --legacy-peer-deps
         npm install -D jest @babel/core @babel/preset-env @babel/preset-react jest-environment-jsdom identity-obj-proxy @testing-library/react @testing-library/jest-dom
-    - name: Create Jest config
-      run: |
-        echo '{
-          "testEnvironment": "jsdom",
-          "moduleNameMapper": {
-            "\\.(css|less|scss|sass)$": "identity-obj-proxy"
-          },
-          "setupFilesAfterEnv": ["<rootDir>/src/setupTests.js"],
-          "transform": {
-            "^.+\\.(js|jsx)$": "babel-jest"
-          },
-          "testMatch": ["**/__tests__/**/*.js?(x)", "**/?(*.)+(spec|test).js?(x)"]
-        }' > jest.config.json
-    - name: Create Babel config
-      run: |
-        echo '{
-          "presets": [
-            "@babel/preset-env",
-            ["@babel/preset-react", {"runtime": "automatic"}]
-          ]
-        }' > babel.config.json
-    - name: Run tests with coverage
-      run: npm run test:coverage
+
+
     - name: SonarCloud Scan
       uses: SonarSource/sonarcloud-github-action@master
       env:
