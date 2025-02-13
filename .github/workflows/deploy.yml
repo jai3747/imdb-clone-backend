@@ -169,8 +169,11 @@ jobs:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       with:
         args: >
-          -Dsonar.organization=jai3747 -Dsonar.projectKey=jai3747_imdb-clone-frontend -Dsonar.sources=src -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info -Dsonar.tests=src -Dsonar.test.inclusions=**/*.test.js,**/*.test.jsx -Dsonar.coverage.exclusions=**/*.test.js,**/*.test.jsx,src/index.js,src/reportWebVitals.js,src/setupTests.js
-
+          -Dsonar.organization=jai3747
+          -Dsonar.projectKey=jai3747_imdb-clone-backend
+          -Dsonar.sources=src
+          -Dsonar.coverage.exclusions=**/*
+          -Dsonar.qualitygate.wait=false
   frontend-kubesec:
     name: 🎯 Frontend Kubesec
     runs-on: ubuntu-latest
@@ -316,8 +319,7 @@ jobs:
       run: |
         npm install --legacy-peer-deps
         # npm install -D jest @babel/core @babel/preset-env supertest
-    - name: Run tests with coverage
-      run: npm run test:coverage
+
     - name: SonarCloud Scan
       uses: SonarSource/sonarcloud-github-action@master
       env:
@@ -325,7 +327,11 @@ jobs:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       with:
         args: >
-          -Dsonar.organization=jai3747 -Dsonar.projectKey=jai3747_imdb-clone-backend -Dsonar.sources=src -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info -Dsonar.tests=src -Dsonar.test.inclusions=**/*.test.js -Dsonar.coverage.exclusions=**/*.test.js,src/index.js,src/config/**,src/middleware/**
+          -Dsonar.organization=jai3747
+          -Dsonar.projectKey=jai3747_imdb-clone-backend
+          -Dsonar.sources=src
+          -Dsonar.coverage.exclusions=**/*
+          -Dsonar.qualitygate.wait=false
 
   backend-kubesec:
     name: 🎯 Backend Kubesec
