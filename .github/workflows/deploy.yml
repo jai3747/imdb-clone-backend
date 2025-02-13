@@ -119,10 +119,12 @@ jobs:
         name: frontend-checkov-report
         path: checkov-frontend-report.json
         retention-days: 30
-
-  frontend-sonarcloud:
+frontend-sonarcloud:
     name: 🔊 Frontend SonarCloud
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./frontend  # Set default working directory
     steps:
     - name: Checkout Frontend Code
       uses: actions/checkout@v4
@@ -130,31 +132,76 @@ jobs:
         repository: jai3747/imdb-clone-frontend
         token: ${{ secrets.GH_PAT }}
         fetch-depth: 0
+        path: frontend  # Checkout into frontend directory
+
     - name: Setup Node.js
       uses: actions/setup-node@v4
       with:
         node-version: '18'
         cache: 'npm'
+        cache-dependency-path: frontend/package-lock.json
+
     - name: Install dependencies
       run: |
         npm install --legacy-peer-deps
         npm install -D jest @babel/core @babel/preset-env @babel/preset-react jest-environment-jsdom identity-obj-proxy @testing-library/react @testing-library/jest-dom
 
-
+    # - name: Run Tests
+    #   run: |
+    #     npm run test:coverage || true
+      
     - name: SonarCloud Scan
-      uses: SonarSource/sonarqube-scan-action@v4.1.0  # Using the recommended new action
-
+      uses: SonarSource/sonarqube-scan-action@v4.1.0
       env:
         GITHUB_TOKEN: ${{ secrets.GH_PAT }}
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       with:
+        projectBaseDir: frontend
         args: >
-          -Dsonar.organization=jai3747
+          -Dsonar.organization=jayachandran
           -Dsonar.projectKey=imdb-clone-frontend
           -Dsonar.sources=src
+          # -Dsonar.tests=src
+          # -Dsonar.test.inclusions=src/**/*.test.js,src/**/*.test.jsx
           -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-          -Dsonar.coverage.exclusions=**/*
-          -Dsonar.qualitygate.wait=false
+          -Dsonar.coverage.exclusions=src/**/*.test.js,src/**/*.test.jsx,src/index.js
+          -Dsonar.sourceEncoding=UTF-8
+          -Dsonar.verbose=true
+  # frontend-sonarcloud:
+  #   name: 🔊 Frontend SonarCloud
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - name: Checkout Frontend Code
+  #     uses: actions/checkout@v4
+  #     with:
+  #       repository: jai3747/imdb-clone-frontend
+  #       token: ${{ secrets.GH_PAT }}
+  #       fetch-depth: 0
+  #   - name: Setup Node.js
+  #     uses: actions/setup-node@v4
+  #     with:
+  #       node-version: '18'
+  #       cache: 'npm'
+  #   - name: Install dependencies
+  #     run: |
+  #       npm install --legacy-peer-deps
+  #       npm install -D jest @babel/core @babel/preset-env @babel/preset-react jest-environment-jsdom identity-obj-proxy @testing-library/react @testing-library/jest-dom
+
+
+  #   - name: SonarCloud Scan
+  #     uses: SonarSource/sonarqube-scan-action@v4.1.0  # Using the recommended new action
+
+  #     env:
+  #       GITHUB_TOKEN: ${{ secrets.GH_PAT }}
+  #       SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  #     with:
+  #       args: >
+  #         -Dsonar.organization=jai3747
+  #         -Dsonar.projectKey=imdb-clone-frontend
+  #         -Dsonar.sources=src
+  #         -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+  #         -Dsonar.coverage.exclusions=**/*
+  #         -Dsonar.qualitygate.wait=false
   frontend-kubesec:
     name: 🎯 Frontend Kubesec
     runs-on: ubuntu-latest
