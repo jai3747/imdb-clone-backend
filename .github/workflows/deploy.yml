@@ -142,15 +142,17 @@ jobs:
 
 
     - name: SonarCloud Scan
-      uses: SonarSource/sonarcloud-github-action@master
+      uses: SonarSource/sonarqube-scan-action@v4.1.0  # Using the recommended new action
+
       env:
         GITHUB_TOKEN: ${{ secrets.GH_PAT }}
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
       with:
         args: >
           -Dsonar.organization=jai3747
-          -Dsonar.projectKey=jai3747_imdb-clone-backend
+          -Dsonar.projectKey=jai3747_imdb-clone-frontend
           -Dsonar.sources=src
+          -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
           -Dsonar.coverage.exclusions=**/*
           -Dsonar.qualitygate.wait=false
   frontend-kubesec:
