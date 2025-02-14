@@ -401,7 +401,7 @@ jobs:
         repository: jai3747/imdb-clone-backend
         token: ${{ secrets.GH_PAT }}
     - name: Setup Kubernetes Tools
-      uses: ./backend/.github/actions/k8s-setup
+      uses: ./backend/.github/actions/k8s-setup/action.yml
       with:
         helm-version: ${{ env.HELM_VERSION }}
         gcp-credentials: ${{ secrets.GCP_SA_KEY }}
