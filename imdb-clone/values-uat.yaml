@@ -1,7 +1,7 @@
 # values-staging.yaml
 global:
-  namespace: stag
-  environment: staging
+  namespace: uat
+  environment: UAT
 
 mongodb:
   image:
