@@ -400,39 +400,64 @@ jobs:
       with:
         repository: jai3747/imdb-clone-backend
         token: ${{ secrets.GH_PAT }}
-
-    - name: Configure GCloud Auth
-      uses: google-github-actions/auth@v1
+    - name: Setup Kubernetes Tools
+      uses: ./backend/.github/actions/k8s-setup
       with:
-        credentials_json: ${{ secrets.GCP_SA_KEY }}
+        helm-version: ${{ env.HELM_VERSION }}
+        gcp-credentials: ${{ secrets.GCP_SA_KEY }}
+        gcp-project-id: ${{ secrets.GCP_PROJECT_ID }}
+        cluster-name: ${{ env.CLUSTER_NAME }}
+        cluster-zone: ${{ env.CLUSTER_ZONE }}
 
-    - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v1
 
-    - name: Configure Kubectl
-      run: |
-        gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} \
-          --zone ${{ env.CLUSTER_ZONE }} \
-          --project ${{ secrets.GCP_PROJECT_ID }}
+    # - name: Configure GCloud Auth
+    #   uses: google-github-actions/auth@v1
+    #   with:
+    #     credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-    - name: Install Helm
-      uses: azure/setup-helm@v3
-      with:
-        version: ${{ env.HELM_VERSION }}
+    # - name: Set up Cloud SDK
+    #   uses: google-github-actions/setup-gcloud@v1
+
+    # - name: Configure Kubectl
+    #   run: |
+    #     gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} \
+    #       --zone ${{ env.CLUSTER_ZONE }} \
+    #       --project ${{ secrets.GCP_PROJECT_ID }}
+
+    # - name: Install Helm
+    #   uses: azure/setup-helm@v3
+    #   with:
+    #     version: ${{ env.HELM_VERSION }}
 
     - name: Deploy to Development
       run: |
         kubectl create namespace development --dry-run=client -o yaml | kubectl apply -f -
+        cd backend
         
         # Update Helm dependencies
         helm dependency update ./imdb-clone
 
+        # # Create MongoDB secret
+        # kubectl create secret generic mongodb-secret \
+        #   --from-literal=mongodb-root-password=${{ secrets.MONGODB_ROOT_PASSWORD }} \
+        #   --namespace development \
+        #   --dry-run=client -o yaml | kubectl apply -f -
+
+        # # Deploy using Helm
+        # helm upgrade --install imdb-clone-dev ./imdb-clone \
+        #   --namespace development \
+        #   --set frontend.image.tag=${{ needs.frontend-build.outputs.image_tag }} \
+        #   --set backend.image.tag=${{ needs.backend-build.outputs.image_tag }} \
+        #   --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
+        #   -f ./imdb-clone/values-dev.yaml \
+        #   --atomic \
+        #   --timeout 10m
         # Create MongoDB secret
         kubectl create secret generic mongodb-secret \
           --from-literal=mongodb-root-password=${{ secrets.MONGODB_ROOT_PASSWORD }} \
           --namespace development \
           --dry-run=client -o yaml | kubectl apply -f -
-
+        
         # Deploy using Helm
         helm upgrade --install imdb-clone-dev ./imdb-clone \
           --namespace development \
