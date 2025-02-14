@@ -549,9 +549,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ prod, dev, uat ]
+    branches: [ main ]
   pull_request:
-    branches: [ prod ]
+    branches: [ main ]
 
 env:
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
@@ -976,7 +976,9 @@ jobs:
     needs: [ frontend-build, backend-build, frontend-trivy, backend-trivy ]
     runs-on: ubuntu-latest
     environment: development
-    if: github.ref == 'refs/heads/dev'
+    if: |
+      github.ref == 'refs/heads/dev' ||
+      (github.event_name == 'pull_request' && github.base_ref == 'dev')
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
@@ -1017,7 +1019,9 @@ jobs:
     needs: [ frontend-build, backend-build, frontend-trivy, backend-trivy ]
     runs-on: ubuntu-latest
     environment: uat
-    if: github.ref == 'refs/heads/uat'
+    if: |
+      github.ref == 'refs/heads/uat' ||
+      (github.event_name == 'pull_request' && github.base_ref == 'uat')
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
@@ -1058,7 +1062,9 @@ jobs:
     needs: [ frontend-build, backend-build, frontend-trivy, backend-trivy ]
     runs-on: ubuntu-latest
     environment: production
-    if: github.ref == 'refs/heads/prod'
+    if: |
+      github.ref == 'refs/heads/prod' ||
+      (github.event_name == 'pull_request' && github.base_ref == 'prod')
     steps:
     - name: Checkout Code
       uses: actions/checkout@v4
