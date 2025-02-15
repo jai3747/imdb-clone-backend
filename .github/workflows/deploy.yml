@@ -384,13 +384,14 @@ jobs:
         repository: jai3747/imdb-clone-backend
         token: ${{ secrets.GH_PAT }}
 
-    - name: Configure GCloud Auth
-      uses: google-github-actions/auth@v1
-      with:
-        credentials_json: ${{ secrets.GCP_SA_KEY }}
-
     - name: Setup Kubernetes Tools
       uses: ./.github/actions/k8s-setup
+      with:
+        helm-version: 'v3.12.0'  # Explicitly set version
+        gcp-credentials: ${{ secrets.GCP_SA_KEY }}
+        gcp-project-id: ${{ secrets.GCP_PROJECT_ID }}
+        cluster-name: ${{ env.CLUSTER_NAME }}
+        cluster-zone: ${{ env.CLUSTER_ZONE }}
 
     - name: Deploy to Development
       run: |
@@ -398,76 +399,6 @@ jobs:
           --set frontend.image.tag=${{ needs.frontend-build.outputs.image_tag }} \
           --set backend.image.tag=${{ needs.backend-build.outputs.image_tag }} \
           --namespace development --create-namespace
-
-    - name: Verify Deployment
-      if: success()
-      run: |
-        chmod +x .github/scripts/verify-deployment.sh
-        .github/scripts/verify-deployment.sh ${{ needs.frontend-build.outputs.image_tag }} ${{ needs.backend-build.outputs.image_tag }}
-
-  deploy-uat:
-    needs: [ frontend-build, backend-build ]
-    if: github.ref == 'refs/heads/uat'
-    runs-on: ubuntu-latest
-    environment:
-      name: uat
-      url: http://uat.myapp.awsaparna123.xyz
-    steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
-      with:
-        repository: jai3747/imdb-clone-backend
-        token: ${{ secrets.GH_PAT }}
-
-    - name: Configure GCloud Auth
-      uses: google-github-actions/auth@v1
-      with:
-        credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-    - name: Setup Kubernetes Tools
-      uses: ./.github/actions/k8s-setup
-
-    - name: Deploy to UAT
-      run: |
-        helm upgrade --install imdb-clone ${{ env.CHART_PATH }} \
-          --set frontend.image.tag=${{ needs.frontend-build.outputs.image_tag }} \
-          --set backend.image.tag=${{ needs.backend-build.outputs.image_tag }} \
-          --namespace uat --create-namespace
-
-    - name: Verify Deployment
-      if: success()
-      run: |
-        chmod +x .github/scripts/verify-deployment.sh
-        .github/scripts/verify-deployment.sh ${{ needs.frontend-build.outputs.image_tag }} ${{ needs.backend-build.outputs.image_tag }}
-
-  deploy-prod:
-    needs: [ frontend-build, backend-build ]
-    if: github.ref == 'refs/heads/prod'
-    runs-on: ubuntu-latest
-    environment:
-      name: production
-      url: http://prod.myapp.awsaparna123.xyz
-    steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
-      with:
-        repository: jai3747/imdb-clone-backend
-        token: ${{ secrets.GH_PAT }}
-
-    - name: Configure GCloud Auth
-      uses: google-github-actions/auth@v1
-      with:
-        credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-    - name: Setup Kubernetes Tools
-      uses: ./.github/actions/k8s-setup
-
-    - name: Deploy to Production
-      run: |
-        helm upgrade --install imdb-clone ${{ env.CHART_PATH }} \
-          --set frontend.image.tag=${{ needs.frontend-build.outputs.image_tag }} \
-          --set backend.image.tag=${{ needs.backend-build.outputs.image_tag }} \
-          --namespace production --create-namespace
 
     - name: Verify Deployment
       if: success()
