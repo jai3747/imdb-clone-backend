@@ -387,8 +387,10 @@ jobs:
       uses: google-github-actions/auth@v1
       with:
         credentials_json: ${{ secrets.GCP_SA_KEY }}
-    - name: Deploy to Development Environment
+    - name: Verify Deployment
+      if: success()
       run: |
+        chmod +x .github/scripts/verify-deployment.sh
         .github/scripts/verify-deployment.sh ${{ needs.frontend-build.outputs.image_tag }} ${{ needs.backend-build.outputs.image_tag }}
 
   deploy-uat:
@@ -408,9 +410,11 @@ jobs:
       uses: google-github-actions/auth@v1
       with:
         credentials_json: ${{ secrets.GCP_SA_KEY }}
-    - name: Deploy to UAT Environment
+    - name: Verify Deployment
+      if: success()
       run: |
-        .github/scripts/verify-deployment.sh uat ${{ needs.frontend-build.outputs.image_tag }} ${{ needs.backend-build.outputs.image_tag }}
+        chmod +x .github/scripts/verify-deployment.sh
+        .github/scripts/verify-deployment.sh ${{ needs.frontend-build.outputs.image_tag }} ${{ needs.backend-build.outputs.image_tag }}
 
   deploy-prod:
     needs: [ frontend-build, backend-build ]
@@ -429,6 +433,8 @@ jobs:
       uses: google-github-actions/auth@v1
       with:
         credentials_json: ${{ secrets.GCP_SA_KEY }}
-    - name: Deploy to Production Environment
+    - name: Verify Deployment
+      if: success()
       run: |
-        .github/scripts/verify-deployment.sh production ${{ needs.frontend-build.outputs.image_tag }} ${{ needs.backend-build.outputs.image_tag }}
+       chmod +x .github/scripts/verify-deployment.sh
+       .github/scripts/verify-deployment.sh ${{ needs.frontend-build.outputs.image_tag }} ${{ needs.backend-build.outputs.image_tag }}
