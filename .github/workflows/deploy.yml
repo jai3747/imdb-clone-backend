@@ -19,7 +19,7 @@ env:
   FRONTEND_IMAGE: jai3747/imdb-clone-frontend
   BACKEND_IMAGE: jai3747/imdb-clone-backend
   HELM_VERSION: v3.12.0
-  CHART_PATH: ./backend/.github/actions/k8s-setup
+  CHART_PATH: ./imdb-clone
 
 jobs:
   # Frontend Security Scans - Running in Parallel
@@ -401,7 +401,7 @@ jobs:
         repository: jai3747/imdb-clone-backend
         token: ${{ secrets.GH_PAT }}
     - name: Setup Kubernetes Tools
-      uses: ./backend/.github/actions/k8s-setup/action.yml
+      uses: ./.github/actions/k8s-setup
       with:
         helm-version: ${{ env.HELM_VERSION }}
         gcp-credentials: ${{ secrets.GCP_SA_KEY }}
