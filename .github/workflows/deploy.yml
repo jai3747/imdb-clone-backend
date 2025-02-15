@@ -402,15 +402,20 @@ jobs:
     - name: Deploy to Development
       run: |
         helm upgrade --install imdb-clone ${{ env.CHART_PATH }} \
-          --set frontend.image.tag=${{ needs.frontend-build.outputs.image_tag }} \
-          --set backend.image.tag=${{ needs.backend-build.outputs.image_tag }} \
-          --set mongodb.enabled=true \
-          --set mongodb.auth.enabled=true \
-          --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
-          --set mongodb.initdbScripts.createdb.sh="mongo admin --eval 'db.createUser({user:\"root\",pwd:\"${{ secrets.MONGODB_ROOT_PASSWORD }}\",roles:[{role:\"root\",db:\"admin\"}]});'" \
-          --namespace development \
-          --create-namespace \
-          --debug
+           --set frontend.image.tag=${{ needs.frontend-build.outputs.image_tag }} \
+           --set backend.image.tag=${{ needs.backend-build.outputs.image_tag }} \
+           --set mongodb.enabled=true \
+           --set mongodb.auth.enabled=true \
+           --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
+           --set mongodb.initdbScripts."init\\.sh"='db = db.getSiblingDB("admin"); db.createUser({user:"root",pwd:"$(MONGODB_ROOT_PASSWORD)",roles:[{role:"root",db:"admin"}]});' \
+           --namespace development \
+           --create-namespace \
+           --debug
+
+    
+
+
+
 
     - name: Verify Deployment
       if: success()
