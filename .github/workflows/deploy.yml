@@ -1,525 +1,3 @@
-# name: CI/CD Pipeline
-
-# on:
-#   push:
-#     branches: [ main, dev, uat, prod ]
-#   pull_request:
-#     branches: [ main, dev, uat, prod ]
-
-# env:
-#   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-#   GCP_SA_KEY: ${{ secrets.GCP_SA_KEY }}
-#   MONGO_URL: ${{ secrets.MONGO_URL }}
-#   SEMGREP_TOKEN: ${{ secrets.SEMGREP_TOKEN }}
-#   SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-#   GH_PAT: ${{ secrets.GH_PAT }}
-#   CLUSTER_NAME: cluster-1
-#   CLUSTER_ZONE: asia-south1-a
-#   APP_DOMAIN: http://myapp.awsaparna123.xyz
-#   FRONTEND_IMAGE: jai3747/imdb-clone-frontend
-#   BACKEND_IMAGE: jai3747/imdb-clone-backend
-#   HELM_VERSION: v3.12.0
-#   CHART_PATH: ./imdb-clone
-#   UAT_BRANCH: uat
-#   PROD_BRANCH: prod
-#   DEBUG_WORKFLOW: 'true'
-
-# jobs:
-#   # Frontend Security Scans - Running in Parallel
-#   frontend-trufflehog:
-#     name: 🐷 Frontend TruffleHog
-#     runs-on: ubuntu-latest
-#     steps:
-#     - name: Checkout Frontend Code
-#       uses: actions/checkout@v4
-#       with:
-#         repository: jai3747/imdb-clone-frontend
-#         token: ${{ secrets.GH_PAT }}
-#         fetch-depth: 0
-#     - name: TruffleHog Scan
-#       uses: trufflesecurity/trufflehog@v3.63.3
-#       continue-on-error: true
-#       with:
-#         path: .
-#         base: ${{ github.event.before }}
-#         head: ${{ github.sha }}
-#         extra_args: --json --output trufflehog-frontend-report.json
-#     - name: Upload Results
-#       uses: actions/upload-artifact@v4
-#       with:
-#         name: frontend-trufflehog-report
-#         path: trufflehog-frontend-report.json
-#         retention-days: 30
-
-#   frontend-semgrep:
-#     name: 🔍 Frontend Semgrep
-#     runs-on: ubuntu-latest
-#     steps:
-#     - name: Checkout Frontend Code
-#       uses: actions/checkout@v4
-#       with:
-#         repository: jai3747/imdb-clone-frontend
-#         token: ${{ secrets.GH_PAT }}
-#         fetch-depth: 0
-#     - name: Semgrep Scan
-#       uses: semgrep/semgrep-action@v1
-#       continue-on-error: true
-#       with:
-#         config: p/javascript
-#         output: semgrep-frontend-results.json
-#         json: true
-#     - name: Upload Results
-#       uses: actions/upload-artifact@v4
-#       with:
-#         name: frontend-semgrep-report
-#         path: semgrep-frontend-results.json
-#         retention-days: 30
-
-#   frontend-snyk:
-#     name: 🛡️ Frontend Snyk
-#     runs-on: ubuntu-latest
-#     steps:
-#     - name: Checkout Frontend Code
-#       uses: actions/checkout@v4
-#       with:
-#         repository: jai3747/imdb-clone-frontend
-#         token: ${{ secrets.GH_PAT }}
-#     - name: Snyk Scan
-#       uses: snyk/actions/node@master
-#       continue-on-error: true
-#       env:
-#         SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-#       with:
-#         command: test --json > snyk-frontend-report.json
-#     - name: Upload Results
-#       uses: actions/upload-artifact@v4
-#       with:
-#         name: frontend-snyk-report
-#         path: snyk-frontend-report.json
-#         retention-days: 30
-
-#   frontend-checkov:
-#     name: 🏗️ Frontend Checkov
-#     runs-on: ubuntu-latest
-#     steps:
-#     - name: Checkout Frontend Code
-#       uses: actions/checkout@v4
-#       with:
-#         repository: jai3747/imdb-clone-frontend
-#         token: ${{ secrets.GH_PAT }}
-#     - name: Checkov Scan
-#       uses: bridgecrewio/checkov-action@v12
-#       continue-on-error: true
-#       with:
-#         directory: .
-#         framework: dockerfile,kubernetes,secrets
-#         output: json
-#         output-file-path: checkov-frontend-report.json
-#     - name: Upload Results
-#       uses: actions/upload-artifact@v4
-#       with:
-#         name: frontend-checkov-report
-#         path: checkov-frontend-report.json
-#         retention-days: 30
-
-#   frontend-kubesec:
-#     name: 🎯 Frontend Kubesec
-#     runs-on: ubuntu-latest
-#     steps:
-#     - name: Checkout Frontend Code
-#       uses: actions/checkout@v4
-#       with:
-#         repository: jai3747/imdb-clone-frontend
-#         token: ${{ secrets.GH_PAT }}
-#     - name: Install kubesec
-#       run: |
-#         wget https://github.com/controlplaneio/kubesec/releases/download/v2.11.5/kubesec_linux_amd64.tar.gz
-#         tar xzf kubesec_linux_amd64.tar.gz
-#         sudo mv kubesec /usr/local/bin/
-#     - name: Run kubesec scans
-#       continue-on-error: true
-#       run: |
-#         for file in backup.yaml backup-pipeline.yaml pipeline.yaml; do
-#           if [ -f "$file" ]; then
-#             kubesec scan -f json "$file" > "kubesec-frontend-$(basename "$file" .yaml)-report.json" || true
-#           fi
-#         done
-#     - name: Upload Results
-#       uses: actions/upload-artifact@v4
-#       with:
-#         name: frontend-kubesec-reports
-#         path: kubesec-frontend-*.json
-#         retention-days: 30
-
-#   # Backend Security Scans - Running in Parallel
-#   backend-trufflehog:
-#     name: 🐷 Backend TruffleHog
-#     runs-on: ubuntu-latest
-#     steps:
-#     - name: Checkout Backend Code
-#       uses: actions/checkout@v4
-#       with:
-#         repository: jai3747/imdb-clone-backend
-#         token: ${{ secrets.GH_PAT }}
-#         fetch-depth: 0
-#     - name: TruffleHog Scan
-#       uses: trufflesecurity/trufflehog@v3.63.3
-#       continue-on-error: true
-#       with:
-#         path: .
-#         base: ${{ github.event.before }}
-#         head: ${{ github.sha }}
-#         extra_args: --json --output trufflehog-backend-report.json
-#     - name: Upload Results
-#       uses: actions/upload-artifact@v4
-#       with:
-#         name: backend-trufflehog-report
-#         path: trufflehog-backend-report.json
-#         retention-days: 30
-
-#   backend-semgrep:
-#     name: 🔍 Backend Semgrep
-#     runs-on: ubuntu-latest
-#     steps:
-#     - name: Checkout Backend Code
-#       uses: actions/checkout@v4
-#       with:
-#         repository: jai3747/imdb-clone-backend
-#         token: ${{ secrets.GH_PAT }}
-#         fetch-depth: 0
-#     - name: Semgrep Scan
-#       uses: semgrep/semgrep-action@v1
-#       continue-on-error: true
-#       with:
-#         config: p/javascript
-#         output: semgrep-backend-results.json
-#         json: true
-#     - name: Upload Results
-#       uses: actions/upload-artifact@v4
-#       with:
-#         name: backend-semgrep-report
-#         path: semgrep-backend-results.json
-#         retention-days: 30
-
-#   backend-snyk:
-#     name: 🛡️ Backend Snyk
-#     runs-on: ubuntu-latest
-#     steps:
-#     - name: Checkout Backend Code
-#       uses: actions/checkout@v4
-#       with:
-#         repository: jai3747/imdb-clone-backend
-#         token: ${{ secrets.GH_PAT }}
-#     - name: Snyk Scan
-#       uses: snyk/actions/node@master
-#       continue-on-error: true
-#       env:
-#         SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-#       with:
-#         command: test --json > snyk-backend-report.json
-#     - name: Upload Results
-#       uses: actions/upload-artifact@v4
-#       with:
-#         name: backend-snyk-report
-#         path: snyk-backend-report.json
-#         retention-days: 30
-
-#   backend-checkov:
-#     name: 🏗️ Backend Checkov
-#     runs-on: ubuntu-latest
-#     steps:
-#     - name: Checkout Backend Code
-#       uses: actions/checkout@v4
-#       with:
-#         repository: jai3747/imdb-clone-backend
-#         token: ${{ secrets.GH_PAT }}
-#     - name: Checkov Scan
-#       uses: bridgecrewio/checkov-action@v12
-#       continue-on-error: true
-#       with:
-#         directory: .
-#         framework: dockerfile,kubernetes,secrets
-#         output: json
-#         output-file-path: checkov-backend-report.json
-#     - name: Upload Results
-#       uses: actions/upload-artifact@v4
-#       with:
-#         name: backend-checkov-report
-#         path: checkov-backend-report.json
-#         retention-days: 30
-
-#   backend-kubesec:
-#     name: 🎯 Backend Kubesec
-#     runs-on: ubuntu-latest
-#     steps:
-#     - name: Checkout Backend Code
-#       uses: actions/checkout@v4
-#       with:
-#         repository: jai3747/imdb-clone-backend
-#         token: ${{ secrets.GH_PAT }}
-#     - name: Install kubesec
-#       run: |
-#         wget https://github.com/controlplaneio/kubesec/releases/download/v2.11.5/kubesec_linux_amd64.tar.gz
-#         tar xzf kubesec_linux_amd64.tar.gz
-#         sudo mv kubesec /usr/local/bin/
-#     - name: Install Helm
-#       uses: azure/setup-helm@v3
-#       with:
-#         version: 'v3.12.3'
-#     - name: Create merged Helm templates
-#       run: |
-#         helm template imdb-clone ./imdb-clone > all-manifests.yaml || true
-#     - name: Run kubesec scans
-#       continue-on-error: true
-#       run: |
-#         # Scan individual YAML files
-#         for file in k8.yaml test-working-fine.yaml all-tested-pipeline.yaml; do
-#           if [ -f "$file" ]; then
-#             kubesec scan -f json "$file" > "kubesec-backend-$(basename "$file" .yaml)-report.json" || true
-#           fi
-#         done
-
-#         # Scan Helm templates if they were generated
-#         if [ -f "all-manifests.yaml" ]; then
-#           kubesec scan -f json all-manifests.yaml > kubesec-backend-helm-report.json || true
-#         fi
-#     - name: Upload Results
-#       uses: actions/upload-artifact@v4
-#       with:
-#         name: backend-kubesec-reports
-#         path: kubesec-backend-*.json
-#         retention-days: 30
-#   frontend-build:
-#     runs-on: ubuntu-latest
-#     outputs:
-#       image_tag: ${{ github.sha }}
-#     steps:
-#     - name: Checkout Frontend Code
-#       uses: actions/checkout@v4
-#       with:
-#         repository: jai3747/imdb-clone-frontend
-#         token: ${{ secrets.GH_PAT }}
-
-#     - name: Setup Node.js
-#       uses: actions/setup-node@v4
-#       with:
-#         node-version: "18"
-#         cache: npm
-
-#     - name: Install Dependencies
-#       run: |
-#         rm -f package-lock.json
-#         npm install --legacy-peer-deps
-#         npm install -D @babel/plugin-proposal-private-property-in-object
-
-#     - name: Run Tests
-#       run: npm test
-#       continue-on-error: true
-
-#     - name: Set up Docker Buildx
-#       uses: docker/setup-buildx-action@v3
-
-#     - name: Login to DockerHub
-#       uses: docker/login-action@v3
-#       with:
-#         username: ${{ secrets.DOCKER_USERNAME }}
-#         password: ${{ secrets.DOCKER_PASSWORD }}
-
-#     - name: Build and Push Frontend Image
-#       uses: docker/build-push-action@v5
-#       with:
-#         context: .
-#         push: true
-#         tags: |
-#           ${{ env.FRONTEND_IMAGE }}:${{ github.sha }}
-#           ${{ env.FRONTEND_IMAGE }}:latest
-#         cache-from: type=registry,ref=${{ env.FRONTEND_IMAGE }}:latest
-#         cache-to: type=inline
-#         build-args: |
-#           NODE_ENV=production
-
-#   backend-build:
-#     runs-on: ubuntu-latest
-#     outputs:
-#       image_tag: ${{ github.sha }}
-#     steps:
-#     - name: Checkout Backend Code
-#       uses: actions/checkout@v4
-#       with:
-#         repository: jai3747/imdb-clone-backend
-#         token: ${{ secrets.GH_PAT }}
-
-#     - name: Setup Node.js
-#       uses: actions/setup-node@v4
-#       with:
-#         node-version: "18"
-#         cache: npm
-
-#     - name: Install Dependencies
-#       run: |
-#         rm -rf node_modules
-#         rm -f package-lock.json
-#         npm install
-
-#     - name: Run Tests
-#       run: npm test
-#       continue-on-error: true
-
-#     - name: Set up Docker Buildx
-#       uses: docker/setup-buildx-action@v3
-
-#     - name: Login to DockerHub
-#       uses: docker/login-action@v3
-#       with:
-#         username: ${{ secrets.DOCKER_USERNAME }}
-#         password: ${{ secrets.DOCKER_PASSWORD }}
-
-#     - name: Build and Push Backend Image
-#       uses: docker/build-push-action@v5
-#       with:
-#         context: .
-#         push: true
-#         tags: |
-#           ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
-#           ${{ env.BACKEND_IMAGE }}:latest
-#         cache-from: type=registry,ref=${{ env.BACKEND_IMAGE }}:latest
-#         cache-to: type=inline
-#         build-args: |
-#           NODE_ENV=production
-
-#   deploy-dev:
-#     needs: [ frontend-build, backend-build ]
-#     runs-on: ubuntu-latest
-#     environment: development
-#     if: |
-#       github.event_name == 'push' && github.ref == 'refs/heads/main' ||
-#       github.event_name == 'pull_request' && github.base_ref == 'main'
-#     steps:
-#     - name: Checkout Backend Code
-#       uses: actions/checkout@v4
-#       with:
-#         repository: jai3747/imdb-clone-backend
-#         token: ${{ secrets.GH_PAT }}
-
-#     - name: Configure GCloud Auth
-#       uses: google-github-actions/auth@v1
-#       with:
-#         credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-#     - name: Set up Cloud SDK
-#       uses: google-github-actions/setup-gcloud@v1
-
-#     - name: Install kubectl
-#       run: |
-#         curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-#         sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-#         gcloud components install gke-gcloud-auth-plugin
-
-#     - name: Configure Kubectl
-#       run: |
-#         gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} \
-#           --zone ${{ env.CLUSTER_ZONE }} \
-#           --project ${{ secrets.GCP_PROJECT_ID }}
-
-#     - name: Install Helm
-#       uses: azure/setup-helm@v3
-#       with:
-#         version: ${{ env.HELM_VERSION }}
-
-#     - name: Deploy to Development
-#       run: |
-#         # Create namespace if it doesn't exist
-#         kubectl create namespace development --dry-run=client -o yaml | kubectl apply -f -
-
-#         # Update Helm dependencies
-#         helm dependency update ${{ env.CHART_PATH }}
-
-#         # Create MongoDB secret
-#         kubectl create secret generic mongodb-secret \
-#           --from-literal=mongodb-root-password=${{ secrets.MONGODB_ROOT_PASSWORD }} \
-#           --namespace development \
-#           --dry-run=client -o yaml | kubectl apply -f -
-
-#         # Deploy using Helm
-#         helm upgrade --install imdb-clone-dev ${{ env.CHART_PATH }} \
-#           --namespace development \
-#           --set frontend.image.tag=${{ needs.frontend-build.outputs.image_tag }} \
-#           --set backend.image.tag=${{ needs.backend-build.outputs.image_tag }} \
-#           --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
-#           -f ${{ env.CHART_PATH }}/values-dev.yaml \
-#           --atomic \
-#           --timeout 10m
-#   deploy-uat:
-#     needs: [ frontend-build, backend-build ]
-#     runs-on: ubuntu-latest
-#     environment:
-#       name: uat
-#       url: ${{ env.APP_DOMAIN }}/uat
-#     if: |
-#       (github.event_name == 'push' && (github.ref == 'refs/heads/uat' || endsWith(github.ref, '/uat'))) ||
-#       (github.event_name == 'pull_request' && (github.base_ref == 'uat' || endsWith(github.base_ref, '/uat')))
-#     steps:
-#     - name: Debug Deployment Info
-#       run: |
-#         echo "🔍 Debugging UAT Deployment"
-#         echo "Event: ${{ github.event_name }}"
-#         echo "Branch: ${{ github.ref }}"
-#         echo "Base: ${{ github.base_ref }}"
-#         echo "Images being deployed:"
-#         echo "Frontend: ${{ env.FRONTEND_IMAGE }}:${{ needs.frontend-build.outputs.image_tag }}"
-#         echo "Backend: ${{ env.BACKEND_IMAGE }}:${{ needs.backend-build.outputs.image_tag }}"
-
-#     - name: Checkout Backend Code
-#       uses: actions/checkout@v4
-#       with:
-#         repository: jai3747/imdb-clone-backend
-#         token: ${{ secrets.GH_PAT }}
-#         ref: uat
-#         fetch-depth: 0
-
-#     - name: Setup Kubernetes Tools
-#       uses: ./.github/actions/k8s-setup
-#       with:
-#         helm-version: ${{ env.HELM_VERSION }}
-#         gcp-credentials: ${{ secrets.GCP_SA_KEY }}
-#         gcp-project-id: ${{ secrets.GCP_PROJECT_ID }}
-#         cluster-name: ${{ env.CLUSTER_NAME }}
-#         cluster-zone: ${{ env.CLUSTER_ZONE }}
-
-#     - name: Create UAT Namespace
-#       run: |
-#         kubectl create namespace uat --dry-run=client -o yaml | kubectl apply -f -
-
-#     - name: Update Helm Dependencies
-#       run: |
-#         helm dependency update ${{ env.CHART_PATH }}
-
-#     - name: Create MongoDB Secret
-#       run: |
-#         kubectl create secret generic mongodb-secret \
-#           --from-literal=mongodb-root-password=${{ secrets.MONGODB_ROOT_PASSWORD }} \
-#           --namespace uat \
-#           --dry-run=client -o yaml | kubectl apply -f -
-
-#     - name: Deploy to UAT
-#       run: |
-#         helm upgrade --install imdb-clone-uat ${{ env.CHART_PATH }} \
-#           --namespace uat \
-#           --set frontend.image.tag=${{ needs.frontend-build.outputs.image_tag }} \
-#           --set backend.image.tag=${{ needs.backend-build.outputs.image_tag }} \
-#           --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
-#           --set environment=uat \
-#           --set domain=${{ env.APP_DOMAIN }} \
-#           -f ${{ env.CHART_PATH }}/values-uat.yaml \
-#           --atomic \
-#           --timeout 10m
-
-#     - name: Verify Deployment
-#       run: |
-#         echo "Verifying UAT deployment..."
-#         kubectl get pods -n uat
-#         kubectl get services -n uat
-#         helm list -n uat
 name: CI/CD Pipeline
 
 on:
@@ -892,102 +370,65 @@ jobs:
           ${{ env.BACKEND_IMAGE }}:${{ github.sha }}
           ${{ env.BACKEND_IMAGE }}:latest
 
-  deploy:
-    needs: [frontend-build, backend-build]
+  deploy-dev:
+    needs: [ frontend-build, backend-build ]
+    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    
-    strategy:
-      matrix:
-        include:
-          - branch: refs/heads/main
-            environment: development
-            namespace: development
-            values_file: values-dev.yaml
-            url: http://dev.myapp.awsaparna123.xyz
-            release_name: imdb-clone-dev
-            
-          - branch: refs/heads/uat
-            environment: uat
-            namespace: uat
-            values_file: values-uat.yaml
-            url: http://uat.myapp.awsaparna123.xyz
-            release_name: imdb-clone-uat
-            
-          - branch: refs/heads/prod
-            environment: production
-            namespace: production
-            values_file: values-prod.yaml
-            url: http://prod.myapp.awsaparna123.xyz
-            release_name: imdb-clone-prod
-
-    if: |
-      github.ref == matrix.branch ||
-      (github.ref == 'refs/heads/dev' && matrix.environment == 'development')
-      
     environment:
-      name: ${{ matrix.environment }}
-      url: ${{ matrix.url }}
-
+      name: development
+      url: http://dev.myapp.awsaparna123.xyz
     steps:
-    - name: Checkout Code
+    - name: Deploy to Development
       uses: actions/checkout@v4
       with:
         repository: jai3747/imdb-clone-backend
         token: ${{ secrets.GH_PAT }}
-
     - name: Configure GCloud Auth
       uses: google-github-actions/auth@v1
       with:
         credentials_json: ${{ secrets.GCP_SA_KEY }}
-
-    - name: Set up Cloud SDK
-      uses: google-github-actions/setup-gcloud@v1
-
-    - name: Install kubectl
+    - name: Deploy to Development Environment
       run: |
-        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-        sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-        gcloud components install gke-gcloud-auth-plugin
+        ./deploy-scripts/deploy.sh development ${{ needs.frontend-build.outputs.image_tag }} ${{ needs.backend-build.outputs.image_tag }}
 
-    - name: Configure Kubectl
-      run: |
-        gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} \
-          --zone ${{ env.CLUSTER_ZONE }} \
-          --project ${{ secrets.GCP_PROJECT_ID }}
-
-    - name: Install Helm
-      uses: azure/setup-helm@v3
+  deploy-uat:
+    needs: [ frontend-build, backend-build ]
+    if: github.ref == 'refs/heads/uat'
+    runs-on: ubuntu-latest
+    environment:
+      name: uat
+      url: http://uat.myapp.awsaparna123.xyz
+    steps:
+    - name: Deploy to UAT
+      uses: actions/checkout@v4
       with:
-        version: ${{ env.HELM_VERSION }}
-
-    - name: Deploy Application
+        repository: jai3747/imdb-clone-backend
+        token: ${{ secrets.GH_PAT }}
+    - name: Configure GCloud Auth
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+    - name: Deploy to UAT Environment
       run: |
-        # Create namespace if it doesn't exist
-        kubectl create namespace ${{ matrix.namespace }} --dry-run=client -o yaml | kubectl apply -f -
-        
-        # Update Helm dependencies
-        helm dependency update ${{ env.CHART_PATH }}
-        
-        # Create MongoDB secret
-        kubectl create secret generic mongodb-secret \
-          --from-literal=mongodb-root-password=${{ secrets.MONGODB_ROOT_PASSWORD }} \
-          --namespace ${{ matrix.namespace }} \
-          --dry-run=client -o yaml | kubectl apply -f -
-        
-        # Deploy using Helm
-        helm upgrade --install ${{ matrix.release_name }} ${{ env.CHART_PATH }} \
-          --namespace ${{ matrix.namespace }} \
-          --set frontend.image.tag=${{ needs.frontend-build.outputs.image_tag }} \
-          --set backend.image.tag=${{ needs.backend-build.outputs.image_tag }} \
-          --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
-          --set environment=${{ matrix.environment }} \
-          -f ${{ env.CHART_PATH }}/${{ matrix.values_file }} \
-          --atomic \
-          --timeout 10m
+        ./deploy-scripts/deploy.sh uat ${{ needs.frontend-build.outputs.image_tag }} ${{ needs.backend-build.outputs.image_tag }}
 
-    - name: Verify Deployment
+  deploy-prod:
+    needs: [ frontend-build, backend-build ]
+    if: github.ref == 'refs/heads/prod'
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: http://prod.myapp.awsaparna123.xyz
+    steps:
+    - name: Deploy to Production
+      uses: actions/checkout@v4
+      with:
+        repository: jai3747/imdb-clone-backend
+        token: ${{ secrets.GH_PAT }}
+    - name: Configure GCloud Auth
+      uses: google-github-actions/auth@v1
+      with:
+        credentials_json: ${{ secrets.GCP_SA_KEY }}
+    - name: Deploy to Production Environment
       run: |
-        echo "Verifying ${{ matrix.environment }} deployment..."
-        kubectl get pods -n ${{ matrix.namespace }}
-        kubectl get services -n ${{ matrix.namespace }}
-        helm list -n ${{ matrix.namespace }}
+        ./deploy-scripts/deploy.sh production ${{ needs.frontend-build.outputs.image_tag }} ${{ needs.backend-build.outputs.image_tag }}
