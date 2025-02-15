@@ -1,183 +1,11 @@
-# # # # name: 'Setup Kubernetes Tools'
-# # # # description: 'Sets up Helm, kubectl, and authenticates with GKE'
-# # # # inputs:
-# # # #   helm-version:
-# # # #     description: 'Version of Helm to install'
-# # # #     required: true
-# # # #   gcp-credentials:
-# # # #     description: 'GCP Service Account Key'
-# # # #     required: true
-# # # #   gcp-project-id:
-# # # #     description: 'GCP Project ID'
-# # # #     required: true
-# # # #   cluster-name:
-# # # #     description: 'GKE Cluster Name'
-# # # #     required: true
-# # # #   cluster-zone:
-# # # #     description: 'GKE Cluster Zone'
-# # # #     required: true
-# # # # runs:
-# # # #   using: "composite"
-# # # #   steps:
-# # # #     - name: Install Helm
-# # # #       uses: azure/setup-helm@v3
-# # # #       with:
-# # # #         version: ${{ inputs.helm-version }}
-# # # #     - name: Google Auth
-# # # #       uses: google-github-actions/auth@v1
-# # # #       with:
-# # # #         credentials_json: ${{ inputs.gcp-credentials }}
-# # # #     - name: Set up Cloud SDK
-# # # #       uses: google-github-actions/setup-gcloud@v1
-# # # #     - name: Install kubectl and gke-auth
-# # # #       shell: bash
-# # # #       run: |
-# # # #         gcloud components install kubectl gke-gcloud-auth-plugin
-# # # #         gcloud --quiet auth configure-docker
-# # # #     - name: Get GKE Credentials
-# # # #       shell: bash
-# # # #       run: |
-# # # #         gcloud container clusters get-credentials ${{ inputs.cluster-name }} \
-# # # #         --zone ${{ inputs.cluster-zone }} \
-# # # #         --project ${{ inputs.gcp-project-id }}
-# # # #     - name: Add Helm Repositories
-# # # #       shell: bash
-# # # #       run: |
-# # # #         helm repo add bitnami https://charts.bitnami.com/bitnami
-# # # #         helm repo update
-# # # # .github/actions/k8s-setup/action.yml
-# # # name: 'Setup Kubernetes Tools'
-# # # description: 'Sets up Helm, kubectl, and authenticates with GKE'
-# # # inputs:
-# # #   helm-version:
-# # #     description: 'Version of Helm to install'
-# # #     required: true
-# # #   gcp-credentials:
-# # #     description: 'GCP Service Account Key'
-# # #     required: true
-# # #   gcp-project-id:
-# # #     description: 'GCP Project ID'
-# # #     required: true
-# # #   cluster-name:
-# # #     description: 'GKE Cluster Name'
-# # #     required: true
-# # #   cluster-zone:
-# # #     description: 'GKE Cluster Zone'
-# # #     required: true
-# # # runs:
-# # #   using: "composite"
-# # #   steps:
-# # #     - name: Install Helm
-# # #       uses: azure/setup-helm@v3
-# # #       with:
-# # #         version: ${{ inputs.helm-version }}
-        
-# # #     - name: Google Auth
-# # #       uses: google-github-actions/auth@v1
-# # #       with:
-# # #         credentials_json: ${{ inputs.gcp-credentials }}
-        
-# # #     - name: Set up Cloud SDK
-# # #       uses: google-github-actions/setup-gcloud@v1
-      
-# # #     - name: Install kubectl and configure components
-# # #       shell: bash
-# # #       run: |
-# # #         # Install kubectl
-# # #         sudo apt-get update
-# # #         sudo apt-get install -y apt-transport-https ca-certificates curl
-# # #         curl -fsSL https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo gpg --dearmor -o /usr/share/keyrings/kubernetes-archive-keyring.gpg
-# # #         echo "deb [signed-by=/usr/share/keyrings/kubernetes-archive-keyring.gpg] https://apt.kubernetes.io/ kubernetes-xenial main" | sudo tee /etc/apt/sources.list.d/kubernetes.list
-# # #         sudo apt-get update
-# # #         sudo apt-get install -y kubectl
-        
-# # #         # Install gke-gcloud-auth-plugin
-# # #         sudo apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin
-        
-# # #         # Configure docker
-# # #         gcloud --quiet auth configure-docker
-        
-# # #     - name: Get GKE Credentials
-# # #       shell: bash
-# # #       run: |
-# # #         gcloud container clusters get-credentials ${{ inputs.cluster-name }} \
-# # #         --zone ${{ inputs.cluster-zone }} \
-# # #         --project ${{ inputs.gcp-project-id }}
-        
-# # #     - name: Add Helm Repositories
-# # #       shell: bash
-# # #       run: |
-# # #         helm repo add bitnami https://charts.bitnami.com/bitnami
-# # #         helm repo update
-# # name: 'Setup Kubernetes Tools'
-# # description: 'Sets up Helm, kubectl, and authenticates with GKE'
-# # inputs:
-# #   helm-version:
-# #     description: 'Version of Helm to install'
-# #     required: true
-# #   gcp-credentials:
-# #     description: 'GCP Service Account Key'
-# #     required: true
-# #   gcp-project-id:
-# #     description: 'GCP Project ID'
-# #     required: true
-# #   cluster-name:
-# #     description: 'GKE Cluster Name'
-# #     required: true
-# #   cluster-zone:
-# #     description: 'GKE Cluster Zone'
-# #     required: true
-
-# # runs:
-# #   using: "composite"
-# #   steps:
-# #     - name: Install Helm
-# #       uses: azure/setup-helm@v3
-# #       with:
-# #         version: ${{ inputs.helm-version }}
-        
-# #     - name: Google Auth
-# #       uses: google-github-actions/auth@v1
-# #       with:
-# #         credentials_json: ${{ inputs.gcp-credentials }}
-        
-# #     - name: Set up Cloud SDK
-# #       uses: google-github-actions/setup-gcloud@v1
-      
-# #     - name: Install kubectl
-# #       shell: bash
-# #       run: |
-# #         # Download the latest stable kubectl binary
-# #         curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-        
-# #         # Install kubectl
-# #         sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-        
-# #         # Install gke-gcloud-auth-plugin
-# #         sudo apt-get update
-# #         sudo apt-get install -y google-cloud-sdk-gke-gcloud-auth-plugin
-        
-# #         # Configure docker
-# #         gcloud --quiet auth configure-docker
-        
-# #     - name: Get GKE Credentials
-# #       shell: bash
-# #       run: |
-# #         gcloud container clusters get-credentials ${{ inputs.cluster-name }} \
-# #         --zone ${{ inputs.cluster-zone }} \
-# #         --project ${{ inputs.gcp-project-id }}
-        
-# #     - name: Add Helm Repositories
-# #       shell: bash
-# #       run: |
-# #         helm repo add bitnami https://charts.bitnami.com/bitnami
-# #         helm repo update
+# # .github/actions/k8s-setup/action.yml
 # name: 'Setup Kubernetes Tools'
 # description: 'Sets up Helm, kubectl, and authenticates with GKE'
 # inputs:
 #   helm-version:
 #     description: 'Version of Helm to install'
 #     required: true
+#     default: 'v3.12.0'  # Adding default value as fallback
 #   gcp-credentials:
 #     description: 'GCP Service Account Key'
 #     required: true
@@ -210,20 +38,11 @@
 #     - name: Install kubectl and GKE auth plugin
 #       shell: bash
 #       run: |
-#         # Download the latest stable kubectl binary
 #         curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-        
-#         # Install kubectl
 #         sudo install -o root -g root -m 0755 kubectl /usr/local/bin/kubectl
-        
-#         # Install gke-gcloud-auth-plugin using gcloud
-#         gcloud components install gke-gcloud-auth-plugin
-        
-#         # Verify installations
+#         gcloud components install gke-gcloud-auth-plugin --quiet
 #         kubectl version --client
 #         gke-gcloud-auth-plugin --version
-        
-#         # Configure docker
 #         gcloud --quiet auth configure-docker
         
 #     - name: Get GKE Credentials
