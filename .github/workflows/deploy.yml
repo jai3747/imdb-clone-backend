@@ -407,7 +407,8 @@ jobs:
            --set mongodb.enabled=true \
            --set mongodb.auth.enabled=true \
            --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
-           --set-string mongodb.initdbScripts."init\\.js"="db.getSiblingDB('admin').createUser({user:'root',pwd:'${{ secrets.MONGODB_ROOT_PASSWORD }}',roles:[{role:'root',db:'admin'}]})" \
+           --set mongodb.initdbScripts."init\\.js"="use admin;\ndb.createUser({user:'root',pwd:'${{ secrets.MONGODB_ROOT_PASSWORD }}',roles:[{role:'root',db:'admin'}]});" \
+           --values ${{ env.CHART_PATH }}/values-dev.yaml \
 
            --namespace development \
            --create-namespace \
