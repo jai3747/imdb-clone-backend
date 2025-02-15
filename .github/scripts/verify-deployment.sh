@@ -1,26 +1,40 @@
-# .github/scripts/verify-deployment.sh
 #!/bin/bash
-set -e
 
-NAMESPACE=$1
+# Get parameters
+ENVIRONMENT=$1
+FRONTEND_TAG=$2
+BACKEND_TAG=$3
 
-echo "=== Helm Releases ===" 
-helm list -n $NAMESPACE
+# Configure kubectl
+gcloud container clusters get-credentials ${CLUSTER_NAME} \
+  --zone ${CLUSTER_ZONE} \
+  --project ${GCP_PROJECT_ID}
 
-echo -e "\n=== All Resources ==="
-kubectl get all -n $NAMESPACE
+# Create namespace if it doesn't exist
+kubectl create namespace ${ENVIRONMENT} --dry-run=client -o yaml | kubectl apply -f -
 
-echo -e "\n=== Pods Status ==="
-kubectl get pods -n $NAMESPACE
+# Update Helm dependencies
+helm dependency update ${CHART_PATH}
 
-echo -e "\n=== Services Status ==="
-kubectl get svc -n $NAMESPACE
+# Create MongoDB secret
+kubectl create secret generic mongodb-secret \
+  --from-literal=mongodb-root-password=${MONGODB_ROOT_PASSWORD} \
+  --namespace ${ENVIRONMENT} \
+  --dry-run=client -o yaml | kubectl apply -f -
 
-echo -e "\n=== Deployments Status ==="
-kubectl get deployments -n $NAMESPACE
+# Deploy using Helm
+helm upgrade --install imdb-clone-${ENVIRONMENT} ${CHART_PATH} \
+  --namespace ${ENVIRONMENT} \
+  --set frontend.image.tag=${FRONTEND_TAG} \
+  --set backend.image.tag=${BACKEND_TAG} \
+  --set mongodb.auth.rootPassword=${MONGODB_ROOT_PASSWORD} \
+  --set environment=${ENVIRONMENT} \
+  -f ${CHART_PATH}/values-${ENVIRONMENT}.yaml \
+  --atomic \
+  --timeout 10m
 
-echo -e "\n=== Pod Logs ==="
-for pod in $(kubectl get pods -n $NAMESPACE -l app=imdb-clone -o jsonpath='{.items[*].metadata.name}'); do
-  echo -e "\nLogs for $pod:"
-  kubectl logs -n $NAMESPACE $pod --tail=50
-done
+# Verify deployment
+echo "Verifying ${ENVIRONMENT} deployment..."
+kubectl get pods -n ${ENVIRONMENT}
+kubectl get services -n ${ENVIRONMENT}
+helm list -n ${ENVIRONMENT}
