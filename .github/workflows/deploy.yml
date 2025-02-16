@@ -408,7 +408,4 @@ jobs:
           --namespace production \
           --create-namespace \
           --debug
-        (echo "🚨 Helm deployment failed! Showing logs and rolling back..." && \
-          helm history imdb-clone-prod -n production && \
-          helm rollback imdb-clone-prod 1 -n production && \
-          exit 1)
+
