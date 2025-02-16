@@ -1,4 +1,4 @@
-a# templates/backend-service.yaml
+# templates/backend-service.yaml
 apiVersion: v1
 kind: Service
 metadata:
@@ -11,4 +11,3 @@ spec:
     targetPort: 5000
   selector:
     app: backend
-
