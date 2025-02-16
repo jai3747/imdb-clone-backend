@@ -1,0 +1,8 @@
+mongodb:
+  initdbScripts:
+    createuser.js: |
+      db.getSiblingDB('admin').createUser({
+        user: 'root',
+        pwd: '$MONGODB_ROOT_PASSWORD',
+        roles: [{ role: 'root', db: 'admin' }]
+      })
