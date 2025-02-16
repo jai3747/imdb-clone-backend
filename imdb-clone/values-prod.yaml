@@ -1,14 +1,20 @@
-# # values-prod.yaml
+# # # values-prod.yaml
 # global:
-#   namespace: backend-prod
+#   namespace: prod
 #   environment: production
 
 # mongodb:
 #   image:
-#     repository: mongo
+#     repository: bitnami/mongodb  # Changed to bitnami/mongodb for better integration
 #     tag: "6.0"
+#   architecture: standalone
+#   auth:
+#     enabled: true
+#     rootPassword: "${MONGODB_ROOT_PASSWORD}"  # Use environment variable
 #   persistence:
+#     enabled: true
 #     size: 1Gi
+#     mountPath: /data/db  # Explicitly set the correct data directory
 #     storageClass: standard-rwo
 #   resources:
 #     requests:
@@ -19,14 +25,23 @@
 #       cpu: "500m"
 #   database: imdb-prod
 #   securityContext:
-#     fsGroup: 999
-#     runAsUser: 999
+#     enabled: true
+#     fsGroup: 1001        # Bitnami MongoDB user
+#     runAsUser: 1001      # Bitnami MongoDB user
 #     runAsNonRoot: true
+#   containerSecurityContext:
+#     enabled: true
+#     runAsUser: 1001      # Bitnami MongoDB user
+#   volumePermissions:
+#     enabled: true        # Enable init container to set permissions
+#   podSecurityContext:
+#     enabled: true
+#     fsGroup: 1001        # Bitnami MongoDB user
 
 # backend:
 #   replicaCount: 1
 #   image:
-#     repository: jai3747/imdb-clone-backend
+#     repository: jai3747/imdb-clone-backend-prod
 #     tag: latest
 #     pullPolicy: Always
 #   service:
@@ -50,12 +65,12 @@
 # frontend:
 #   replicaCount: 1
 #   image:
-#     repository: jai3747/imdb-clone-frontend
+#     repository: jai3747/imdb-clone-frontend-prod
 #     tag: latest
 #     pullPolicy: Always
 #   service:
 #     type: LoadBalancer
-#     port: 80
+#     port: 3000
 #     targetPort: 3000
 #   resources:
 #     requests:
@@ -77,16 +92,16 @@ global:
 
 mongodb:
   image:
-    repository: bitnami/mongodb  # Changed to bitnami/mongodb for better integration
+    repository: bitnami/mongodb
     tag: "6.0"
   architecture: standalone
   auth:
     enabled: true
-    rootPassword: "${MONGODB_ROOT_PASSWORD}"  # Use environment variable
+    rootPassword: "${MONGODB_ROOT_PASSWORD}"
   persistence:
     enabled: true
     size: 1Gi
-    mountPath: /data/db  # Explicitly set the correct data directory
+    mountPath: /data/db
     storageClass: standard-rwo
   resources:
     requests:
@@ -98,17 +113,17 @@ mongodb:
   database: imdb-prod
   securityContext:
     enabled: true
-    fsGroup: 1001        # Bitnami MongoDB user
-    runAsUser: 1001      # Bitnami MongoDB user
+    fsGroup: 1001
+    runAsUser: 1001
     runAsNonRoot: true
   containerSecurityContext:
     enabled: true
-    runAsUser: 1001      # Bitnami MongoDB user
+    runAsUser: 1001
   volumePermissions:
-    enabled: true        # Enable init container to set permissions
+    enabled: true
   podSecurityContext:
     enabled: true
-    fsGroup: 1001        # Bitnami MongoDB user
+    fsGroup: 1001
 
 backend:
   replicaCount: 1
@@ -119,6 +134,7 @@ backend:
   service:
     type: LoadBalancer
     port: 5000
+  domain: "https://prd.frontend.jayachandran.xyx"
   resources:
     requests:
       memory: "256Mi"
@@ -144,6 +160,7 @@ frontend:
     type: LoadBalancer
     port: 3000
     targetPort: 3000
+  domain: "https://prd.backend.jayachandran.xyx"
   resources:
     requests:
       memory: "256Mi"
