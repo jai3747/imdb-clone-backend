@@ -15,8 +15,8 @@ env:
   CLUSTER_NAME: cluster-1
   CLUSTER_ZONE: asia-south1-a
   APP_DOMAIN: http://myapp.jayachandran.xyz
-  FRONTEND_IMAGE: jai3747/imdb-clone-frontend-prod
-  BACKEND_IMAGE: jai3747/imdb-clone-backend-prod
+  FRONTEND_IMAGE: jai3747/imdb-clone-frontend-prod:latest
+  BACKEND_IMAGE: jai3747/imdb-clone-backend-prod:latest
   HELM_VERSION: v3.12.0
   CHART_PATH: ./imdb-clone
   DEBUG_WORKFLOW: 'true'
@@ -285,6 +285,7 @@ jobs:
   #
 
 
+  
   frontend-build:
     runs-on: ubuntu-latest
     steps:
@@ -321,8 +322,7 @@ jobs:
       with:
         context: .
         push: true
-        tags: |
-          ${{ env.FRONTEND_IMAGE }}-prod:latest
+        tags: ${{ env.FRONTEND_IMAGE }}
 
   backend-build:
     runs-on: ubuntu-latest
@@ -363,8 +363,7 @@ jobs:
       with:
         context: .
         push: true
-        tags: |
-          ${{ env.BACKEND_IMAGE }}-prod:latest
+        tags: ${{ env.BACKEND_IMAGE }}
 
   deploy:
     needs: [frontend-build, backend-build]
@@ -382,21 +381,28 @@ jobs:
     - name: Setup Kubernetes Tools
       uses: ./.github/actions/k8s-setup
       with:
-        helm-version: 'v3.12.0'
+        helm-version: ${{ env.HELM_VERSION }}
         gcp-credentials: ${{ secrets.GCP_SA_KEY }}
         gcp-project-id: ${{ secrets.GCP_PROJECT_ID }}
         cluster-name: ${{ env.CLUSTER_NAME }}
         cluster-zone: ${{ env.CLUSTER_ZONE }}
 
+    - name: Update Helm Dependencies
+      run: |
+        cd ${{ env.CHART_PATH }}
+        helm dependency build
+        helm dependency update
+
     - name: Deploy to Production
       run: |
         helm upgrade --install imdb-clone-prod ${{ env.CHART_PATH }} \
-          --set frontend.image.tag=-prod:latest \
-          --set backend.image.tag=-prod:latest \
+          --set frontend.image.repository=jai3747/imdb-clone-frontend-prod \
+          --set frontend.image.tag=latest \
+          --set backend.image.repository=jai3747/imdb-clone-backend-prod \
+          --set backend.image.tag=latest \
           --set mongodb.enabled=true \
           --set mongodb.auth.enabled=true \
           --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
-          --values ./initdb-scripts.yaml \
           --values ./imdb-clone/values-prod.yaml \
           --namespace production \
           --create-namespace \
