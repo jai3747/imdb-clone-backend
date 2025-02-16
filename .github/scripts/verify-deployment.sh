@@ -1,44 +1,3 @@
-# #!/bin/bash
-
-# # Get parameters
-# ENVIRONMENT=$1
-# FRONTEND_TAG=$2
-# BACKEND_TAG=$3
-
-# # Configure kubectl
-# gcloud container clusters get-credentials ${CLUSTER_NAME} \
-#   --zone ${CLUSTER_ZONE} \
-#   --project ${GCP_PROJECT_ID}
-
-# # Create namespace if it doesn't exist
-# kubectl create namespace ${ENVIRONMENT} --dry-run=client -o yaml | kubectl apply -f -
-
-# # Update Helm dependencies
-# helm dependency update ${CHART_PATH}
-
-# # Create MongoDB secret
-# kubectl create secret generic mongodb-secret \
-#   --from-literal=mongodb-root-password=${MONGODB_ROOT_PASSWORD} \
-#   --namespace ${ENVIRONMENT} \
-#   --dry-run=client -o yaml | kubectl apply -f -
-
-# # Deploy using Helm
-# helm upgrade --install imdb-clone-${ENVIRONMENT} ${CHART_PATH} \
-#   --namespace ${ENVIRONMENT} \
-#   --set frontend.image.tag=${FRONTEND_TAG} \
-#   --set backend.image.tag=${BACKEND_TAG} \
-#   --set mongodb.auth.rootPassword=${MONGODB_ROOT_PASSWORD} \
-#   --set environment=${ENVIRONMENT} \
-#   -f ${CHART_PATH}/values-${ENVIRONMENT}.yaml \
-#   --atomic \
-#   --timeout 10m
-
-# # Verify deployment
-# echo "Verifying ${ENVIRONMENT} deployment..."
-# kubectl get pods -n ${ENVIRONMENT}
-# kubectl get services -n ${ENVIRONMENT}
-# helm list -n ${ENVIRONMENT}
-# .github/scripts/verify-deployment.sh
 #!/bin/bash
 set -e
 
@@ -48,40 +7,54 @@ NAMESPACE=$3
 
 echo "Verifying deployment for Frontend tag: $FRONTEND_TAG, Backend tag: $BACKEND_TAG in namespace: $NAMESPACE"
 
-# Check if frontend pods are running with correct image
-FRONTEND_PODS=$(kubectl get pods -n $NAMESPACE -l app=frontend -o jsonpath='{.items[*].spec.containers[*].image}')
-if [[ $FRONTEND_PODS != *"$FRONTEND_TAG"* ]]; then
-    echo "Frontend pods are not running with the correct image tag"
-    exit 1
+# Check if the namespace exists
+if ! kubectl get namespace "$NAMESPACE" > /dev/null 2>&1; then
+  echo "Namespace $NAMESPACE does not exist."
+  exit 1
 fi
 
-# Check if backend pods are running with correct image
-BACKEND_PODS=$(kubectl get pods -n $NAMESPACE -l app=backend -o jsonpath='{.items[*].spec.containers[*].image}')
+# Check if frontend pods are running with the correct image
+FRONTEND_PODS=$(kubectl get pods -n "$NAMESPACE" -l app=frontend -o jsonpath='{.items[*].spec.containers[*].image}')
+if [[ $FRONTEND_PODS != *"$FRONTEND_TAG"* ]]; then
+  echo "Frontend pods are not running with the correct image tag."
+  echo "Expected tag: $FRONTEND_TAG"
+  echo "Found tags: $FRONTEND_PODS"
+  exit 1
+fi
+
+# Check if backend pods are running with the correct image
+BACKEND_PODS=$(kubectl get pods -n "$NAMESPACE" -l app=backend -o jsonpath='{.items[*].spec.containers[*].image}')
 if [[ $BACKEND_PODS != *"$BACKEND_TAG"* ]]; then
-    echo "Backend pods are not running with the correct image tag"
-    exit 1
+  echo "Backend pods are not running with the correct image tag."
+  echo "Expected tag: $BACKEND_TAG"
+  echo "Found tags: $BACKEND_PODS"
+  exit 1
 fi
 
 # Check if all pods are running
-FAILED_PODS=$(kubectl get pods -n $NAMESPACE --field-selector status.phase!=Running,status.phase!=Succeeded -o jsonpath='{.items[*].metadata.name}')
-if [ ! -z "$FAILED_PODS" ]; then
-    echo "Some pods are not running:"
-    echo $FAILED_PODS
-    exit 1
+FAILED_PODS=$(kubectl get pods -n "$NAMESPACE" --field-selector=status.phase!=Running,status.phase!=Succeeded -o jsonpath='{.items[*].metadata.name}')
+if [ -n "$FAILED_PODS" ]; then
+  echo "Some pods are not running or have failed:"
+  echo "$FAILED_PODS"
+  exit 1
 fi
 
-# Check if services are available
-SERVICES=$(kubectl get services -n $NAMESPACE -o name)
-if [[ $SERVICES != *"frontend"* ]] || [[ $SERVICES != *"backend"* ]]; then
-    echo "Required services are not available"
-    exit 1
+# Check if required services are available
+SERVICES=$(kubectl get services -n "$NAMESPACE" -o jsonpath='{.items[*].metadata.name}')
+if [[ $SERVICES != *"frontend"* ]]; then
+  echo "Frontend service is not available."
+  exit 1
+fi
+if [[ $SERVICES != *"backend"* ]]; then
+  echo "Backend service is not available."
+  exit 1
 fi
 
 # Check if ingress is configured
-INGRESS=$(kubectl get ingress -n $NAMESPACE -o name)
+INGRESS=$(kubectl get ingress -n "$NAMESPACE" -o jsonpath='{.items[*].metadata.name}')
 if [ -z "$INGRESS" ]; then
-    echo "Ingress is not configured"
-    exit 1
+  echo "Ingress is not configured."
+  exit 1
 fi
 
 echo "Deployment verification completed successfully!"
