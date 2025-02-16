@@ -8,11 +8,11 @@ metadata:
 data:
   MONGODB_INITDB_DATABASE: {{ .Values.mongodb.database }}
 ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: frontend-config
-  namespace: {{ .Values.global.namespace }}
-data:
-  REACT_APP_BACKEND_API: "http://backend-service.{{ .Values.global.namespace }}.svc.cluster.local:{{ .Values.backend.service.port }}/api"
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: frontend-config
+#   namespace: {{ .Values.global.namespace }}
+# data:
+#   REACT_APP_BACKEND_API: "http://backend-service.{{ .Values.global.namespace }}.svc.cluster.local:{{ .Values.backend.service.port }}/api"
 
