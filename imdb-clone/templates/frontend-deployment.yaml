@@ -16,33 +16,31 @@ spec:
         app: frontend
     spec:
       containers:
-      - name: frontend
-        image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
-        imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
-        ports:
-        - containerPort: 3000
-        env:
-        - name: HOST
-          value: "0.0.0.0"
-        - name: PORT
-          value: "3000"
-        - name: REACT_APP_BACKEND_API
-          value: "http://{{ .Values.backend.domain }}/api"
-        - name: REACT_APP_FRONTEND_DOMAIN
-          value: "http://{{ .Values.frontend.domain }}"
-        readinessProbe:
-          httpGet:
-            path: /
-            port: 3000
-          {{- with .Values.frontend.probes.readiness }}
-          {{- toYaml . | nindent 10 }}
-          {{- end }}
-        livenessProbe:
-          httpGet:
-            path: /
-            port: 3000
-          {{- with .Values.frontend.probes.liveness }}
-          {{- toYaml . | nindent 10 }}
-          {{- end }}
-        resources:
-          {{- toYaml .Values.frontend.resources | nindent 10 }}
+        - name: frontend
+          image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
+          imagePullPolicy: {{ .Values.frontend.image.pullPolicy }}
+          ports:
+            - containerPort: 3000
+          env:
+            - name: HOST
+              value: "0.0.0.0"
+            - name: PORT
+              value: "3000"
+            - name: REACT_APP_BACKEND_API
+              value: "http://{{ .Values.backend.domain }}/api"
+            - name: REACT_APP_FRONTEND_DOMAIN
+              value: "http://{{ .Values.frontend.domain }}"
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 20
+            periodSeconds: 20
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 3000
+            initialDelaySeconds: 25
+            periodSeconds: 30
+          resources:
+            {{- toYaml .Values.frontend.resources | nindent 12 }}
