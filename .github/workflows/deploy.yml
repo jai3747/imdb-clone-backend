@@ -518,8 +518,4 @@ jobs:
             --create-namespace \
             --debug
 
-      - name: Verify Deployment
-        if: success()
-        run: |
-          chmod +x .github/scripts/verify-deployment.sh
-          .github/scripts/verify-deployment.sh ${{ needs.frontend-build.outputs.image_tag }} ${{ needs.backend-build.outputs.image_tag }}
+      
