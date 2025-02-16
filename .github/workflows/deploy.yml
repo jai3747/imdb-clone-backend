@@ -395,7 +395,7 @@ jobs:
 
     - name: Deploy to Production
       run: |
-        set -e  # Exit immediately on any error
+        
         helm upgrade --install imdb-clone-prod ${{ env.CHART_PATH }} \
           --set frontend.image.repository=jai3747/imdb-clone-frontend-prod \
           --set frontend.image.tag=latest \
