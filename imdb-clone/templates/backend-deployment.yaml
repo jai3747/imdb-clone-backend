@@ -1,4 +1,3 @@
-# templates/backend-deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -36,17 +35,15 @@ spec:
               value: {{ .Values.frontend.domain | quote }}
           readinessProbe:
             httpGet:
-              path: /api/health
+              path: /api/health/ready
               port: 5000
-            {{- with .Values.backend.probes.readiness }}
-            {{- toYaml . | nindent 12 }}
-            {{- end }}
+            initialDelaySeconds: 20
+            periodSeconds: 20
           livenessProbe:
             httpGet:
-              path: /api/health
+              path: /api/health/live
               port: 5000
-            {{- with .Values.backend.probes.liveness }}
-            {{- toYaml . | nindent 12 }}
-            {{- end }}
+            initialDelaySeconds: 25
+            periodSeconds: 30
           resources:
             {{- toYaml .Values.backend.resources | nindent 12 }}
