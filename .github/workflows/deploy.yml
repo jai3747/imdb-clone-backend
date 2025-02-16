@@ -2,9 +2,9 @@ name: CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, dev, uat, prod ]
+    branches: [  dev, uat, prod ]
   pull_request:
-    branches: [ main, dev, uat, prod ]
+    branches: [  dev, uat, prod ]
 
 env:
   GCP_PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
