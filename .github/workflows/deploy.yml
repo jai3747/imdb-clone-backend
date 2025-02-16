@@ -420,13 +420,13 @@ jobs:
       run: |
         rm -rf /tmp/.buildx-cache
         mv /tmp/.buildx-cache-new /tmp/.buildx-cache
-
+  #
   deploy:
     needs: [frontend-build, backend-build]
     runs-on: ubuntu-latest
     environment:
       name: production
-      url: http://prod.myapp.jayachandran.xyz
+      url: https://prod.frontend.jayachandran.xyz
     steps:
     - name: Checkout Backend Code
       uses: actions/checkout@v4
@@ -444,6 +444,26 @@ jobs:
         cluster-name: ${{ env.CLUSTER_NAME }}
         cluster-zone: ${{ env.CLUSTER_ZONE }}
 
+    # Add Helm repositories
+    - name: Add Helm Repositories
+      run: |
+        helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+        helm repo update
+
+    # Install NGINX Ingress Controller
+    - name: Install NGINX Ingress Controller
+      run: |
+        helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+          --namespace ingress-nginx \
+          --create-namespace \
+          --set controller.service.type=LoadBalancer \
+          --set controller.service.externalTrafficPolicy=Local \
+          --set controller.resources.requests.cpu=100m \
+          --set controller.resources.requests.memory=256Mi \
+          --set controller.resources.limits.cpu=200m \
+          --set controller.resources.limits.memory=512Mi \
+          --wait --timeout 5m
+
     - name: Cache Helm dependencies
       uses: actions/cache@v3
       with:
@@ -458,6 +478,7 @@ jobs:
         helm dependency build
         helm dependency update
 
+    # Deploy the application
     - name: Deploy to Production
       run: |
         helm upgrade --install imdb-clone-prod ${{ env.CHART_PATH }} \
@@ -468,101 +489,42 @@ jobs:
           --set mongodb.enabled=true \
           --set mongodb.auth.enabled=true \
           --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
+          --set frontend.domain=prod.frontend.jayachandran.xyz \
+          --set backend.domain=prod.backend.jayachandran.xyz \
           --values ./imdb-clone/values-prod.yaml \
           --namespace production \
           --create-namespace
-  
-  # frontend-build:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - name: Checkout Frontend Code
-  #     uses: actions/checkout@v4
-  #     with:
-  #       repository: jai3747/imdb-clone-frontend
-  #       token: ${{ secrets.GH_PAT }}
 
-  #   - name: Setup Node.js
-  #     uses: actions/setup-node@v4
-  #     with:
-  #       node-version: "18"
-
-  #   - name: Install Frontend Dependencies
-  #     run: |
-  #       if [ -f "package-lock.json" ]; then
-  #         rm package-lock.json
-  #       fi
-  #       npm cache clean --force
-  #       npm install --legacy-peer-deps
-
-  #   - name: Set up Docker Buildx
-  #     uses: docker/setup-buildx-action@v3
-
-  #   - name: Login to DockerHub
-  #     uses: docker/login-action@v3
-  #     with:
-  #       username: ${{ secrets.DOCKER_USERNAME }}
-  #       password: ${{ secrets.DOCKER_PASSWORD }}
-
-  #   - name: Build and Push Frontend Image
-  #     uses: docker/build-push-action@v5
-  #     with:
-  #       context: .
-  #       push: true
-  #       tags: ${{ env.FRONTEND_IMAGE }}
-
-  # backend-build:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #   - name: Checkout Backend Code
-  #     uses: actions/checkout@v4
-  #     with:
-  #       repository: jai3747/imdb-clone-backend
-  #       token: ${{ secrets.GH_PAT }}
-
-  #   - name: Setup Node.js
-  #     uses: actions/setup-node@v4
-  #     with:
-  #       node-version: "18"
-
-  #   - name: Install Backend Dependencies
-  #     run: |
-  #       if [ -d "node_modules" ]; then
-  #         rm -rf node_modules
-  #       fi
-  #       if [ -f "package-lock.json" ]; then
-  #         rm package-lock.json
-  #       fi
-  #       npm cache clean --force
-  #       npm install
-
-  #   - name: Set up Docker Buildx
-  #     uses: docker/setup-buildx-action@v3
-
-  #   - name: Login to DockerHub
-  #     uses: docker/login-action@v3
-  #     with:
-  #       username: ${{ secrets.DOCKER_USERNAME }}
-  #       password: ${{ secrets.DOCKER_PASSWORD }}
-
-  #   - name: Build and Push Backend Image
-  #     uses: docker/build-push-action@v5
-  #     with:
-  #       context: .
-  #       push: true
-  #       tags: ${{ env.BACKEND_IMAGE }}
-
+    # Wait for Ingress IP and verify deployment
+    - name: Wait for Ingress IP and Verify Deployment
+      run: |
+        echo "Waiting for Ingress Controller external IP..."
+        until kubectl get service ingress-nginx-controller -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null; do
+          sleep 10
+        done
+        
+        echo "Waiting for deployments to be ready..."
+        kubectl wait --for=condition=available --timeout=300s deployment/frontend-deployment -n production
+        kubectl wait --for=condition=available --timeout=300s deployment/backend-deployment -n production
+        
+        INGRESS_IP=$(kubectl get service ingress-nginx-controller -n ingress-nginx -o jsonpath='{.status.loadBalancer.ingress[0].ip}')
+        echo "Ingress IP: $INGRESS_IP"
+        echo "Please ensure DNS records are updated:"
+        echo "prod.frontend.jayachandran.xyz -> $INGRESS_IP"
+        echo "prod.backend.jayachandran.xyz -> $INGRESS_IP"
   # deploy:
   #   needs: [frontend-build, backend-build]
   #   runs-on: ubuntu-latest
   #   environment:
   #     name: production
-  #     url: http://prod.myapp.jayachandran.xyz
+  #     url: http://prod.frontend.jayachandran.xyz
   #   steps:
   #   - name: Checkout Backend Code
   #     uses: actions/checkout@v4
   #     with:
   #       repository: jai3747/imdb-clone-backend
   #       token: ${{ secrets.GH_PAT }}
+  #       clean: true
 
   #   - name: Setup Kubernetes Tools
   #     uses: ./.github/actions/k8s-setup
@@ -573,6 +535,14 @@ jobs:
   #       cluster-name: ${{ env.CLUSTER_NAME }}
   #       cluster-zone: ${{ env.CLUSTER_ZONE }}
 
+  #   - name: Cache Helm dependencies
+  #     uses: actions/cache@v3
+  #     with:
+  #       path: ${{ env.CHART_PATH }}/charts
+  #       key: ${{ runner.os }}-helm-${{ hashFiles('**/Chart.lock') }}
+  #       restore-keys: |
+  #         ${{ runner.os }}-helm-
+
   #   - name: Update Helm Dependencies
   #     run: |
   #       cd ${{ env.CHART_PATH }}
@@ -581,7 +551,6 @@ jobs:
 
   #   - name: Deploy to Production
   #     run: |
-        
   #       helm upgrade --install imdb-clone-prod ${{ env.CHART_PATH }} \
   #         --set frontend.image.repository=jai3747/imdb-clone-frontend-prod \
   #         --set frontend.image.tag=latest \
@@ -592,6 +561,5 @@ jobs:
   #         --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
   #         --values ./imdb-clone/values-prod.yaml \
   #         --namespace production \
-  #         --create-namespace \
-  #         --debug
-
+  #         --create-namespace
+  
