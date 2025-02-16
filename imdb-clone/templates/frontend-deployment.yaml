@@ -1,4 +1,4 @@
-apiVersion: apps/v1
+# apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: frontend-deployment
@@ -27,21 +27,22 @@ spec:
         - name: PORT
           value: "3000"
         - name: REACT_APP_BACKEND_API
-          value: {{ .Values.backend.domain }}/api
+          value: "http://{{ .Values.backend.domain }}/api"
         - name: REACT_APP_FRONTEND_DOMAIN
-          value: {{ .Values.frontend.domain }}
+          value: "http://{{ .Values.frontend.domain }}"
         readinessProbe:
           httpGet:
             path: /
             port: 3000
-          {{- toYaml .Values.frontend.probes.readiness | nindent 10 }}
+          {{- with .Values.frontend.probes.readiness }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
         livenessProbe:
           httpGet:
             path: /
             port: 3000
-          {{- toYaml .Values.frontend.probes.liveness | nindent 10 }}
+          {{- with .Values.frontend.probes.liveness }}
+          {{- toYaml . | nindent 10 }}
+          {{- end }}
         resources:
           {{- toYaml .Values.frontend.resources | nindent 10 }}
-
-
-
