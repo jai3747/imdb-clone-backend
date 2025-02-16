@@ -134,7 +134,7 @@ backend:
   service:
     type: LoadBalancer
     port: 5000
-  domain: "http://prd.frontend.jayachandran.xyx"
+  domain: "http://prd.frontend.jayachandran.xyx/3000"
   resources:
     requests:
       memory: "256Mi"
@@ -160,7 +160,7 @@ frontend:
     type: LoadBalancer
     port: 3000
     targetPort: 3000
-  domain: "http://prd.backend.jayachandran.xyx"
+  domain: "http://prd.backend.jayachandran.xyx:5000/api"
   resources:
     requests:
       memory: "256Mi"
