@@ -376,17 +376,26 @@ jobs:
 
   deploy-dev:
     needs: [frontend-build, backend-build]
-    if: github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/dev'
     runs-on: ubuntu-latest
     environment:
       name: development
       url: http://dev.myapp.jayachandran.xyz
     steps:
-      - name: Checkout Code
+      - name: Checkout Backend Code
         uses: actions/checkout@v4
         with:
           repository: jai3747/imdb-clone-backend
           token: ${{ secrets.GH_PAT }}
+          ref: dev  # Explicitly checkout dev branch
+
+      - name: Checkout Frontend Code
+        uses: actions/checkout@v4
+        with:
+          repository: jai3747/imdb-clone-frontend
+          token: ${{ secrets.GH_PAT }}
+          ref: dev  # Explicitly checkout dev branch
+          path: frontend
 
       - name: Setup Kubernetes Tools
         uses: ./.github/actions/k8s-setup
@@ -397,41 +406,43 @@ jobs:
           cluster-name: ${{ env.CLUSTER_NAME }}
           cluster-zone: ${{ env.CLUSTER_ZONE }}
 
-      - name: Update Helm dependencies
-        run: |
-          cd ${{ env.CHART_PATH }}
-          helm repo add bitnami https://charts.bitnami.com/bitnami
-          helm dependency update
-          helm dependency build
-
       - name: Deploy to Development
         run: |
           helm upgrade --install imdb-clone ${{ env.CHART_PATH }} \
-            --set frontend.image.tag=${{ needs.frontend-build.outputs.image_tag }} \
-            --set backend.image.tag=${{ needs.backend-build.outputs.image_tag }} \
+            --set frontend.image.repository=${{ env.FRONTEND_IMAGE }} \
+            --set frontend.image.tag=dev \
+            --set backend.image.repository=${{ env.BACKEND_IMAGE }} \
+            --set backend.image.tag=dev \
             --set mongodb.enabled=true \
             --set mongodb.auth.enabled=true \
             --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
-            --values ./initdb-scripts.yaml \
             --values ./imdb-clone/values-dev.yaml \
             --namespace development \
             --create-namespace \
             --debug
 
-
   deploy-uat:
     needs: [frontend-build, backend-build]
-    if: github.ref == 'refs/heads/uat' || github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/uat'
     runs-on: ubuntu-latest
     environment:
       name: uat
       url: http://uat.myapp.jayachandran.xyz
     steps:
-      - name: Checkout Code
+      - name: Checkout Backend Code
         uses: actions/checkout@v4
         with:
           repository: jai3747/imdb-clone-backend
           token: ${{ secrets.GH_PAT }}
+          ref: uat  # Explicitly checkout uat branch
+
+      - name: Checkout Frontend Code
+        uses: actions/checkout@v4
+        with:
+          repository: jai3747/imdb-clone-frontend
+          token: ${{ secrets.GH_PAT }}
+          ref: uat  # Explicitly checkout uat branch
+          path: frontend
 
       - name: Setup Kubernetes Tools
         uses: ./.github/actions/k8s-setup
@@ -442,22 +453,16 @@ jobs:
           cluster-name: ${{ env.CLUSTER_NAME }}
           cluster-zone: ${{ env.CLUSTER_ZONE }}
 
-      - name: Update Helm dependencies
-        run: |
-          cd ${{ env.CHART_PATH }}
-          helm repo add bitnami https://charts.bitnami.com/bitnami
-          helm dependency update
-          helm dependency build
-
       - name: Deploy to UAT
         run: |
           helm upgrade --install imdb-clone ${{ env.CHART_PATH }} \
-            --set frontend.image.tag=${{ needs.frontend-build.outputs.image_tag }} \
-            --set backend.image.tag=${{ needs.backend-build.outputs.image_tag }} \
+            --set frontend.image.repository=${{ env.FRONTEND_IMAGE }} \
+            --set frontend.image.tag=uat \
+            --set backend.image.repository=${{ env.BACKEND_IMAGE }} \
+            --set backend.image.tag=uat \
             --set mongodb.enabled=true \
             --set mongodb.auth.enabled=true \
             --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
-            --set-string mongodb.initdbScripts."createuser\.js"="db.getSiblingDB('admin').createUser({user:'root',pwd:'$MONGODB_ROOT_PASSWORD',roles:[{role:'root',db:'admin'}]})" \
             --values ./imdb-clone/values-uat.yaml \
             --namespace uat \
             --create-namespace \
@@ -465,17 +470,26 @@ jobs:
 
   deploy-prod:
     needs: [frontend-build, backend-build]
-    if: github.ref == 'refs/heads/prod' || github.ref == 'refs/heads/main'
+    if: github.ref == 'refs/heads/prod'
     runs-on: ubuntu-latest
     environment:
       name: production
       url: http://myapp.jayachandran.xyz
     steps:
-      - name: Checkout Code
+      - name: Checkout Backend Code
         uses: actions/checkout@v4
         with:
           repository: jai3747/imdb-clone-backend
           token: ${{ secrets.GH_PAT }}
+          ref: prod  # Explicitly checkout prod branch
+
+      - name: Checkout Frontend Code
+        uses: actions/checkout@v4
+        with:
+          repository: jai3747/imdb-clone-frontend
+          token: ${{ secrets.GH_PAT }}
+          ref: prod  # Explicitly checkout prod branch
+          path: frontend
 
       - name: Setup Kubernetes Tools
         uses: ./.github/actions/k8s-setup
@@ -486,25 +500,18 @@ jobs:
           cluster-name: ${{ env.CLUSTER_NAME }}
           cluster-zone: ${{ env.CLUSTER_ZONE }}
 
-      - name: Update Helm dependencies
-        run: |
-          cd ${{ env.CHART_PATH }}
-          helm repo add bitnami https://charts.bitnami.com/bitnami
-          helm dependency update
-          helm dependency build
-
       - name: Deploy to Production
         run: |
           helm upgrade --install imdb-clone ${{ env.CHART_PATH }} \
-            --set frontend.image.tag=${{ needs.frontend-build.outputs.image_tag }} \
-            --set backend.image.tag=${{ needs.backend-build.outputs.image_tag }} \
+            --set frontend.image.repository=${{ env.FRONTEND_IMAGE }} \
+            --set frontend.image.tag=prod \
+            --set backend.image.repository=${{ env.BACKEND_IMAGE }} \
+            --set backend.image.tag=prod \
             --set mongodb.enabled=true \
             --set mongodb.auth.enabled=true \
             --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
-            --set-string mongodb.initdbScripts."createuser\.js"="db.getSiblingDB('admin').createUser({user:'root',pwd:'$MONGODB_ROOT_PASSWORD',roles:[{role:'root',db:'admin'}]})" \
             --values ./imdb-clone/values-prod.yaml \
             --namespace production \
             --create-namespace \
             --debug
-
       
