@@ -113,7 +113,7 @@ mongodb:
 backend:
   replicaCount: 1
   image:
-    repository: jai3747/imdb-clone-backend
+    repository: jai3747/imdb-clone-backend-prod
     tag: latest
     pullPolicy: Always
   service:
@@ -137,7 +137,7 @@ backend:
 frontend:
   replicaCount: 1
   image:
-    repository: jai3747/imdb-clone-frontend
+    repository: jai3747/imdb-clone-frontend-prod
     tag: latest
     pullPolicy: Always
   service:
