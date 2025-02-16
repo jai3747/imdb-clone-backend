@@ -421,7 +421,7 @@ jobs:
 
   deploy-uat:
     needs: [frontend-build, backend-build]
-    if: github.ref == 'refs/heads/uat' || contains(github.ref, 'refs/heads/uat')
+    if: github.ref == 'refs/heads/uat' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: uat
@@ -465,7 +465,7 @@ jobs:
 
   deploy-prod:
     needs: [frontend-build, backend-build]
-    if: github.ref == 'refs/heads/prod' || contains(github.ref, 'refs/heads/prod')
+    if: github.ref == 'refs/heads/prod' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment:
       name: production
