@@ -322,7 +322,7 @@ jobs:
         context: .
         push: true
         tags: |
-          ${{ env.FRONTEND_IMAGE }}:prod:latest
+          ${{ env.FRONTEND_IMAGE }}-prod:latest
 
   backend-build:
     runs-on: ubuntu-latest
@@ -364,7 +364,7 @@ jobs:
         context: .
         push: true
         tags: |
-          ${{ env.BACKEND_IMAGE }}:prod:latest
+          ${{ env.BACKEND_IMAGE }}-prod:latest
 
   deploy:
     needs: [frontend-build, backend-build]
@@ -391,8 +391,8 @@ jobs:
     - name: Deploy to Production
       run: |
         helm upgrade --install imdb-clone-prod ${{ env.CHART_PATH }} \
-          --set frontend.image.tag=prod:latest \
-          --set backend.image.tag=prod:latest \
+          --set frontend.image.tag=-prod:latest \
+          --set backend.image.tag=-prod:latest \
           --set mongodb.enabled=true \
           --set mongodb.auth.enabled=true \
           --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
