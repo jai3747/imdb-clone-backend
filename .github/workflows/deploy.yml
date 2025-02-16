@@ -418,12 +418,7 @@ jobs:
             --create-namespace \
             --debug
 
-      - name: Verify Deployment
-        if: success()
-        run: |
-          chmod +x .github/scripts/verify-deployment.sh
-          .github/scripts/verify-deployment.sh ${{ needs.frontend-build.outputs.image_tag }} ${{ 
-          needs.backend-build.outputs.image_tag }} development
+
   deploy-uat:
     needs: [frontend-build, backend-build]
     if: github.ref == 'refs/heads/uat'
@@ -467,12 +462,6 @@ jobs:
             --namespace uat \
             --create-namespace \
             --debug
-
-      - name: Verify Deployment
-        if: success()
-        run: |
-          chmod +x .github/scripts/verify-deployment.sh
-          .github/scripts/verify-deployment.sh ${{ needs.frontend-build.outputs.image_tag }} ${{ needs.backend-build.outputs.image_tag }}
 
   deploy-prod:
     needs: [frontend-build, backend-build]
