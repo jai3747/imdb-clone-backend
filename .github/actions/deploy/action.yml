@@ -1,93 +1,140 @@
-# .github/actions/deploy/action.yml
-name: 'Deploy to Environment'
-description: 'Deploys the application to specified environment using Helm'
+# # .github/actions/deploy/action.yml
+# name: 'Deploy to Environment'
+# description: 'Deploys the application to specified environment using Helm'
 
+# inputs:
+#   environment:
+#     description: 'Target environment (development/uat/production)'
+#     required: true
+#   values-file:
+#     description: 'Helm values file to use'
+#     required: true
+#   image-tag:
+#     description: 'Docker image tag to deploy'
+#     required: true
+
+# runs:
+#   using: "composite"
+#   steps:
+#     - name: Checkout Code
+#       uses: actions/checkout@v4
+#       with:
+#         repository: jai3747/imdb-clone-backend
+#         token: ${{ github.token }}
+
+#     - name: Install kubectl
+#       shell: bash
+#       run: |
+#         curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+#         chmod +x kubectl
+#         sudo mv kubectl /usr/local/bin/
+
+#     - name: Install Helm
+#       uses: azure/setup-helm@v3
+#       with:
+#         version: v3.12.0
+
+#     - name: Setup Google Cloud CLI
+#       uses: google-github-actions/setup-gcloud@v0
+#       with:
+#         project_id: ${{ env.GCP_PROJECT_ID }}
+#         service_account_key: ${{ env.GCP_SA_KEY }}
+#         export_default_credentials: true
+
+#     - name: Configure kubectl
+#       shell: bash
+#       run: |
+#         gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} \
+#           --zone ${{ env.CLUSTER_ZONE }} \
+#           --project ${{ env.GCP_PROJECT_ID }}
+
+#     - name: Update Helm dependencies
+#       shell: bash
+#       run: |
+#         cd ${{ env.CHART_PATH }}
+#         helm repo add bitnami https://charts.bitnami.com/bitnami
+#         helm dependency update
+#         helm dependency build
+
+#     - name: Deploy Application
+#       shell: bash
+#       run: |
+#         helm upgrade --install imdb-clone ${{ env.CHART_PATH }} \
+#           --set frontend.image.tag=${{ inputs.image-tag }} \
+#           --set backend.image.tag=${{ inputs.image-tag }} \
+#           --set mongodb.enabled=true \
+#           --set mongodb.auth.enabled=true \
+#           --set mongodb.auth.rootPassword=${{ env.MONGODB_ROOT_PASSWORD }} \
+#           --set-string mongodb.initdbScripts."createuser\.js"="db.getSiblingDB('admin').createUser({user:'root',pwd:'$MONGODB_ROOT_PASSWORD',roles:[{role:'root',db:'admin'}]})" \
+#           --values ${{ env.CHART_PATH }}/${{ inputs.values-file }} \
+#           --namespace ${{ inputs.environment }} \
+#           --create-namespace \
+#           --atomic \
+#           --timeout 10m \
+#           --debug
+
+#     - name: Verify Deployment
+#       shell: bash
+#       run: |
+#         # Wait for pods to be ready
+#         kubectl wait --for=condition=ready pod -l app=frontend -n ${{ inputs.environment }} --timeout=300s
+#         kubectl wait --for=condition=ready pod -l app=backend -n ${{ inputs.environment }} --timeout=300s
+        
+#         # Check deployment status
+#         kubectl get deployments -n ${{ inputs.environment }} -o wide
+        
+#         # Check pods status
+#         kubectl get pods -n ${{ inputs.environment }} -o wide
+        
+#         # Check services
+#         kubectl get services -n ${{ inputs.environment }}
+        
+#         # Check ingress
+#         kubectl get ingress -n ${{ inputs.environment }}
+name: 'Setup Kubernetes Tools'
+description: 'Sets up Helm, kubectl, and authenticates with GKE'
 inputs:
-  environment:
-    description: 'Target environment (development/uat/production)'
+  helm-version:
+    description: 'Version of Helm to install'
     required: true
-  values-file:
-    description: 'Helm values file to use'
+  gcp-credentials:
+    description: 'GCP Service Account Key'
     required: true
-  image-tag:
-    description: 'Docker image tag to deploy'
+  gcp-project-id:
+    description: 'GCP Project ID'
     required: true
-
+  cluster-name:
+    description: 'GKE Cluster Name'
+    required: true
+  cluster-zone:
+    description: 'GKE Cluster Zone'
+    required: true
 runs:
   using: "composite"
   steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
-      with:
-        repository: jai3747/imdb-clone-backend
-        token: ${{ github.token }}
-
-    - name: Install kubectl
-      shell: bash
-      run: |
-        curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
-        chmod +x kubectl
-        sudo mv kubectl /usr/local/bin/
-
     - name: Install Helm
       uses: azure/setup-helm@v3
       with:
-        version: v3.12.0
-
-    - name: Setup Google Cloud CLI
-      uses: google-github-actions/setup-gcloud@v0
+        version: ${{ inputs.helm-version }}
+    - name: Google Auth
+      uses: google-github-actions/auth@v1
       with:
-        project_id: ${{ env.GCP_PROJECT_ID }}
-        service_account_key: ${{ env.GCP_SA_KEY }}
-        export_default_credentials: true
-
-    - name: Configure kubectl
+        credentials_json: ${{ inputs.gcp-credentials }}
+    - name: Set up Cloud SDK
+      uses: google-github-actions/setup-gcloud@v1
+    - name: Install kubectl and gke-auth
       shell: bash
       run: |
-        gcloud container clusters get-credentials ${{ env.CLUSTER_NAME }} \
-          --zone ${{ env.CLUSTER_ZONE }} \
-          --project ${{ env.GCP_PROJECT_ID }}
-
-    - name: Update Helm dependencies
+        gcloud components install kubectl gke-gcloud-auth-plugin
+        gcloud --quiet auth configure-docker
+    - name: Get GKE Credentials
       shell: bash
       run: |
-        cd ${{ env.CHART_PATH }}
+        gcloud container clusters get-credentials ${{ inputs.cluster-name }} \
+        --zone ${{ inputs.cluster-zone }} \
+        --project ${{ inputs.gcp-project-id }}
+    - name: Add Helm Repositories
+      shell: bash
+      run: |
         helm repo add bitnami https://charts.bitnami.com/bitnami
-        helm dependency update
-        helm dependency build
-
-    - name: Deploy Application
-      shell: bash
-      run: |
-        helm upgrade --install imdb-clone ${{ env.CHART_PATH }} \
-          --set frontend.image.tag=${{ inputs.image-tag }} \
-          --set backend.image.tag=${{ inputs.image-tag }} \
-          --set mongodb.enabled=true \
-          --set mongodb.auth.enabled=true \
-          --set mongodb.auth.rootPassword=${{ env.MONGODB_ROOT_PASSWORD }} \
-          --set-string mongodb.initdbScripts."createuser\.js"="db.getSiblingDB('admin').createUser({user:'root',pwd:'$MONGODB_ROOT_PASSWORD',roles:[{role:'root',db:'admin'}]})" \
-          --values ${{ env.CHART_PATH }}/${{ inputs.values-file }} \
-          --namespace ${{ inputs.environment }} \
-          --create-namespace \
-          --atomic \
-          --timeout 10m \
-          --debug
-
-    - name: Verify Deployment
-      shell: bash
-      run: |
-        # Wait for pods to be ready
-        kubectl wait --for=condition=ready pod -l app=frontend -n ${{ inputs.environment }} --timeout=300s
-        kubectl wait --for=condition=ready pod -l app=backend -n ${{ inputs.environment }} --timeout=300s
-        
-        # Check deployment status
-        kubectl get deployments -n ${{ inputs.environment }} -o wide
-        
-        # Check pods status
-        kubectl get pods -n ${{ inputs.environment }} -o wide
-        
-        # Check services
-        kubectl get services -n ${{ inputs.environment }}
-        
-        # Check ingress
-        kubectl get ingress -n ${{ inputs.environment }}
+        helm repo update
