@@ -12,20 +12,17 @@ env:
   MONGO_URL: ${{ secrets.MONGO_URL }}
   SEMGREP_TOKEN: ${{ secrets.SEMGREP_TOKEN }}
   SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
-  GH_PAT: ${{ secrets.GH_PAT }}
   CLUSTER_NAME: cluster-1
   CLUSTER_ZONE: asia-south1-a
   APP_DOMAIN: http://myapp.jayachandran.xyz
-  FRONTEND_IMAGE: jai3747/imdb-clone-frontend
-  BACKEND_IMAGE: jai3747/imdb-clone-backend
+  FRONTEND_IMAGE: jai3747/imdb-clone-frontend-prod:latest
+  BACKEND_IMAGE: jai3747/imdb-clone-backend-prod:latest
   HELM_VERSION: v3.12.0
   CHART_PATH: ./imdb-clone
-  UAT_BRANCH: uat
-  PROD_BRANCH: prod
   DEBUG_WORKFLOW: 'true'
 
 jobs:
-  # Frontend Security Scans - Running in Parallel
+  # Frontend Security Scans
   frontend-trufflehog:
     name: 🐷 Frontend TruffleHog
     runs-on: ubuntu-latest
@@ -60,7 +57,6 @@ jobs:
       with:
         repository: jai3747/imdb-clone-frontend
         token: ${{ secrets.GH_PAT }}
-        fetch-depth: 0
     - name: Semgrep Scan
       uses: semgrep/semgrep-action@v1
       continue-on-error: true
@@ -151,7 +147,7 @@ jobs:
         path: kubesec-frontend-*.json
         retention-days: 30
 
-  # Backend Security Scans - Running in Parallel
+  # Backend Security Scans
   backend-trufflehog:
     name: 🐷 Backend TruffleHog
     runs-on: ubuntu-latest
@@ -186,7 +182,6 @@ jobs:
       with:
         repository: jai3747/imdb-clone-backend
         token: ${{ secrets.GH_PAT }}
-        fetch-depth: 0
     - name: Semgrep Scan
       uses: semgrep/semgrep-action@v1
       continue-on-error: true
@@ -272,14 +267,12 @@ jobs:
     - name: Run kubesec scans
       continue-on-error: true
       run: |
-        # Scan individual YAML files
         for file in k8.yaml test-working-fine.yaml all-tested-pipeline.yaml; do
           if [ -f "$file" ]; then
             kubesec scan -f json "$file" > "kubesec-backend-$(basename "$file" .yaml)-report.json" || true
           fi
         done
 
-        # Scan Helm templates if they were generated
         if [ -f "all-manifests.yaml" ]; then
           kubesec scan -f json all-manifests.yaml > kubesec-backend-helm-report.json || true
         fi
@@ -289,30 +282,53 @@ jobs:
         name: backend-kubesec-reports
         path: kubesec-backend-*.json
         retention-days: 30
+  #
 
-  # Build and Push Images for Frontend and Backend
-  build-and-push:
+
+  frontend-build:
     runs-on: ubuntu-latest
-    outputs:
-      branch: ${{ steps.extract_branch.outputs.branch }}
     steps:
-    - name: Extract branch name
-      id: extract_branch
-      run: echo "branch=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
-
     - name: Checkout Frontend Code
       uses: actions/checkout@v4
       with:
         repository: jai3747/imdb-clone-frontend
         token: ${{ secrets.GH_PAT }}
-        path: frontend
+        clean: true  # This ensures a clean checkout
 
-    - name: Checkout Backend Code
-      uses: actions/checkout@v4
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
       with:
-        repository: jai3747/imdb-clone-backend
-        token: ${{ secrets.GH_PAT }}
-        path: backend
+        node-version: "18"
+        cache: 'npm'
+        cache-dependency-path: '**/package-lock.json'
+
+    - name: Get npm cache directory
+      id: npm-cache-dir
+      shell: bash
+      run: echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
+
+    - name: Cache npm dependencies
+      uses: actions/cache@v3
+      id: npm-cache
+      with:
+        path: ${{ steps.npm-cache-dir.outputs.dir }}
+        key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-npm-
+
+    - name: Install Frontend Dependencies
+      if: steps.npm-cache.outputs.cache-hit != 'true'
+      run: |
+        npm install --legacy-peer-deps
+        npm cache verify
+
+    - name: Cache Docker layers
+      uses: actions/cache@v3
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v3
@@ -326,71 +342,156 @@ jobs:
     - name: Build and Push Frontend Image
       uses: docker/build-push-action@v5
       with:
-        context: ./frontend
+        context: .
         push: true
-        tags: |
-          ${{ env.FRONTEND_IMAGE }}:${{ steps.extract_branch.outputs.branch }}-${{ github.sha }}
-          ${{ env.FRONTEND_IMAGE }}:${{ steps.extract_branch.outputs.branch }}-latest
+        tags: ${{ env.FRONTEND_IMAGE }}
+        cache-from: type=local,src=/tmp/.buildx-cache
+        cache-to: type=local,dest=/tmp/.buildx-cache-new
+
+    - name: Move cache
+      run: |
+        rm -rf /tmp/.buildx-cache
+        mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+  backend-build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout Backend Code
+      uses: actions/checkout@v4
+      with:
+        repository: jai3747/imdb-clone-backend
+        token: ${{ secrets.GH_PAT }}
+        clean: true  # This ensures a clean checkout
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: "18"
+        cache: 'npm'
+        cache-dependency-path: '**/package-lock.json'
+
+    - name: Get npm cache directory
+      id: npm-cache-dir
+      shell: bash
+      run: echo "dir=$(npm config get cache)" >> $GITHUB_OUTPUT
+
+    - name: Cache npm dependencies
+      uses: actions/cache@v3
+      id: npm-cache
+      with:
+        path: ${{ steps.npm-cache-dir.outputs.dir }}
+        key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+        restore-keys: |
+          ${{ runner.os }}-npm-
+
+    - name: Install Backend Dependencies
+      if: steps.npm-cache.outputs.cache-hit != 'true'
+      run: |
+        npm install
+        npm cache verify
+
+    - name: Cache Docker layers
+      uses: actions/cache@v3
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-backend-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-backend-
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: Login to DockerHub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
 
     - name: Build and Push Backend Image
       uses: docker/build-push-action@v5
       with:
-        context: ./backend
+        context: .
         push: true
-        tags: |
-          ${{ env.BACKEND_IMAGE }}:${{ steps.extract_branch.outputs.branch }}-${{ github.sha }}
-          ${{ env.BACKEND_IMAGE }}:${{ steps.extract_branch.outputs.branch }}-latest
+        tags: ${{ env.BACKEND_IMAGE }}
+        cache-from: type=local,src=/tmp/.buildx-cache
+        cache-to: type=local,dest=/tmp/.buildx-cache-new
 
-  # Deploy to Environment
+    - name: Move cache
+      run: |
+        rm -rf /tmp/.buildx-cache
+        mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+  #
   deploy:
-    needs: build-and-push
+    needs: [frontend-build, backend-build]
     runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: https://prod.frontend.jayachandran.xyz
     steps:
-    - name: Checkout Code
+    - name: Checkout Backend Code
       uses: actions/checkout@v4
+      with:
+        repository: jai3747/imdb-clone-backend
+        token: ${{ secrets.GH_PAT }}
+        clean: true
 
     - name: Setup Kubernetes Tools
       uses: ./.github/actions/k8s-setup
       with:
-        helm-version: 'v3.12.0'
+        helm-version: ${{ env.HELM_VERSION }}
         gcp-credentials: ${{ secrets.GCP_SA_KEY }}
         gcp-project-id: ${{ secrets.GCP_PROJECT_ID }}
         cluster-name: ${{ env.CLUSTER_NAME }}
         cluster-zone: ${{ env.CLUSTER_ZONE }}
 
-    - name: Deploy to Environment
+    # Add Helm repositories
+    - name: Add Helm Repositories
       run: |
-        # Set environment based on branch
-        BRANCH="${{ needs.build-and-push.outputs.branch }}"
-        case $BRANCH in
-          "dev")
-            ENV="development"
-            VALUES_FILE="values-dev.yaml"
-            ;;
-          "uat")
-            ENV="uat"
-            VALUES_FILE="values-uat.yaml"
-            ;;
-          "prod")
-            ENV="production"
-            VALUES_FILE="values-prod.yaml"
-            ;;
-        esac
+        helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+        helm repo update
 
-        # Deploy Frontend
-        helm upgrade --install imdb-clone-frontend-$ENV ${{ env.CHART_PATH }} \
-          --namespace $ENV \
+    # Install NGINX Ingress Controller
+    - name: Install NGINX Ingress Controller
+      run: |
+        helm upgrade --install ingress-nginx ingress-nginx/ingress-nginx \
+          --namespace ingress-nginx \
           --create-namespace \
-          --set image.repository=${{ env.FRONTEND_IMAGE }} \
-          --set image.tag=$BRANCH-${{ github.sha }} \
-          --values ${{ env.CHART_PATH }}/$VALUES_FILE \
-          --debug
+          --set controller.service.type=LoadBalancer \
+          --set controller.service.externalTrafficPolicy=Local \
+          --set controller.resources.requests.cpu=100m \
+          --set controller.resources.requests.memory=256Mi \
+          --set controller.resources.limits.cpu=200m \
+          --set controller.resources.limits.memory=512Mi \
+          --wait --timeout 5m
 
-        # Deploy Backend
-        helm upgrade --install imdb-clone-backend-$ENV ${{ env.CHART_PATH }} \
-          --namespace $ENV \
-          --create-namespace \
-          --set image.repository=${{ env.BACKEND_IMAGE }} \
-          --set image.tag=$BRANCH-${{ github.sha }} \
-          --values ${{ env.CHART_PATH }}/$VALUES_FILE \
-          --debug
+    - name: Cache Helm dependencies
+      uses: actions/cache@v3
+      with:
+        path: ${{ env.CHART_PATH }}/charts
+        key: ${{ runner.os }}-helm-${{ hashFiles('**/Chart.lock') }}
+        restore-keys: |
+          ${{ runner.os }}-helm-
+
+    - name: Update Helm Dependencies
+      run: |
+        cd ${{ env.CHART_PATH }}
+        helm dependency build
+        helm dependency update
+
+    # Deploy the application
+    - name: Deploy to Production
+      run: |
+        helm upgrade --install imdb-clone-prod ${{ env.CHART_PATH }} \
+          --set frontend.image.repository=jai3747/imdb-clone-frontend-prod \
+          --set frontend.image.tag=latest \
+          --set backend.image.repository=jai3747/imdb-clone-backend-prod \
+          --set backend.image.tag=latest \
+          --set mongodb.enabled=true \
+          --set mongodb.auth.enabled=true \
+          --set mongodb.auth.rootPassword=${{ secrets.MONGODB_ROOT_PASSWORD }} \
+          --set frontend.domain=prod.frontend.jayachandran.xyz \
+          --set backend.domain=prod.backend.jayachandran.xyz \
+          --values ./imdb-clone/values-prod.yaml \
+          --namespace production \
+          --create-namespace
+
