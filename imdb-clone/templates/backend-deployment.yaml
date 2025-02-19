@@ -1,4 +1,52 @@
-# templates/backend-deployment.yaml
+# # templates/backend-deployment.yaml
+# apiVersion: apps/v1
+# kind: Deployment
+# metadata:
+#   name: backend-deployment
+#   namespace: {{ .Values.global.namespace }}
+#   labels:
+#     {{- include "imdb-clone.labels" . | nindent 4 }}
+# spec:
+#   replicas: {{ .Values.backend.replicaCount }}
+#   selector:
+#     matchLabels:
+#       app: backend
+#   template:
+#     metadata:
+#       labels:
+#         app: backend
+#     spec:
+#       containers:
+#       - name: backend
+#         image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+#         imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+#         ports:
+#         - containerPort: 5000
+#         env:
+#         - name: PORT
+#           value: "5000"
+#         - name: NODE_ENV
+#           value: {{ .Values.global.environment }}
+#         - name: MONGO_URL
+#           valueFrom:
+#             secretKeyRef:
+#               name: mongodb-secret
+#               key: MONGO_URL
+#         readinessProbe:
+#           httpGet:
+#             path: /api/health
+#             port: 5000
+#           {{- toYaml .Values.backend.probes.readiness | nindent 10 }}
+#         livenessProbe:
+#           httpGet:
+#             path: /api/health
+#             port: 5000
+#           {{- toYaml .Values.backend.probes.liveness | nindent 10 }}
+#         resources:
+#           {{- toYaml .Values.backend.resources | nindent 10 }}
+
+
+# backend-deployment.yaml modifications
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -17,32 +65,44 @@ spec:
         app: backend
     spec:
       containers:
-      - name: backend
-        image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
-        imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
-        ports:
-        - containerPort: 5000
-        env:
-        - name: PORT
-          value: "5000"
-        - name: NODE_ENV
-          value: {{ .Values.global.environment }}
-        - name: MONGO_URL
-          valueFrom:
-            secretKeyRef:
-              name: mongodb-secret
-              key: MONGO_URL
-        readinessProbe:
-          httpGet:
-            path: /api/health
-            port: 5000
-          {{- toYaml .Values.backend.probes.readiness | nindent 10 }}
-        livenessProbe:
-          httpGet:
-            path: /api/health
-            port: 5000
-          {{- toYaml .Values.backend.probes.liveness | nindent 10 }}
-        resources:
-          {{- toYaml .Values.backend.resources | nindent 10 }}
-
-
+        - name: backend
+          image: "{{ .Values.backend.image.repository }}:{{ .Values.backend.image.tag }}"
+          imagePullPolicy: {{ .Values.backend.image.pullPolicy }}
+          ports:
+            - containerPort: 5000
+          env:
+            - name: PORT
+              value: "5000"
+            - name: NODE_ENV
+              value: {{ .Values.global.environment | quote }}
+            - name: MONGO_URL
+              valueFrom:
+                secretKeyRef:
+                  name: mongodb-secret
+                  key: MONGO_URL
+            - name: FRONTEND_DOMAIN
+              value: "https://{{ .Values.frontend.domain }}"
+            - name: BUILD_VERSION
+              value: {{ .Values.backend.image.tag | quote }}
+            - name: LOG_LEVEL
+              value: "info"
+          volumeMounts:
+            - name: logs
+              mountPath: /var/log/app
+          readinessProbe:
+            httpGet:
+              path: /api/health/ready
+              port: 5000
+            initialDelaySeconds: {{ .Values.backend.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.backend.probes.readiness.periodSeconds }}
+          livenessProbe:
+            httpGet:
+              path: /api/health/live
+              port: 5000
+            initialDelaySeconds: {{ .Values.backend.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.backend.probes.liveness.periodSeconds }}
+          resources:
+            {{- toYaml .Values.backend.resources | nindent 12 }}
+      volumes:
+        - name: logs
+          emptyDir: {}
