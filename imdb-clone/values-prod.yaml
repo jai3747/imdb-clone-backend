@@ -89,7 +89,7 @@ backend:
   service:
     type: ClusterIP
     port: 5000
-  domain: "prod.backend.jayachandran.xyz"
+  domain: "prod-frontend.jayachandran.xyz"
   resources:
     requests:
       memory: "256Mi"
@@ -115,7 +115,7 @@ frontend:
     type: ClusterIP
     port: 3000
     targetPort: 3000
-  domain: "prod.frontend.jayachandran.xyz"
+  domain: "prod-backend.jayachandran.xyz"
   resources:
     requests:
       memory: "256Mi"
@@ -133,5 +133,5 @@ frontend:
 
 ingress:
   sslRedirect: true
-  frontendDomain: "prod.frontend.jayachandran.xyz"
-  backendDomain: "prod.backend.jayachandran.xyz"
+  frontendDomain: "prod-frontend.jayachandran.xyz"
+  backendDomain: "prod-backend.jayachandran.xyz"
